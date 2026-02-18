@@ -1,0 +1,12 @@
+# Test: TokenTemplate compiles and deploys
+# Run with: neoxp batch tests/01-token-template-deploy.batch
+#
+# Ephemeral chain — run with: neoxp run --discard --seconds-per-block 1
+# This test verifies the TokenTemplate contract deploys and basic NEP-17
+# methods return expected values.
+
+transfer 1000 GAS genesis deployer
+contract deploy ./src/TokenTemplate/bin/sc/TokenTemplate.nef genesis
+contract run TokenTemplate symbol --results
+contract run TokenTemplate decimals --results
+contract run TokenTemplate totalSupply --results

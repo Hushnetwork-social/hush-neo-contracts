@@ -1,0 +1,13 @@
+# Build output
+src/*/bin/
+src/*/obj/
+
+# Neo Express checkpoints (large binary files — regenerate locally)
+devnet/checkpoints/
+
+# Default neo-express location (not our devnet config)
+default.neo-express
+
+# OS
+.DS_Store
+Thumbs.db

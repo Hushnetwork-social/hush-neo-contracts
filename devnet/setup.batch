@@ -1,0 +1,11 @@
+# HushNetwork DevNet — Initial Setup
+# Run with: neoxp batch setup.batch -i devnet.neo-express
+#
+# This script sets up the persistent devnet for development.
+# After running, a checkpoint is saved so you can always restore to a clean state.
+
+# Fund the deployer wallet with GAS for contract deployments
+transfer 1000 GAS genesis deployer
+
+# Checkpoint: clean state before any contracts are deployed
+checkpoint create checkpoints/00-genesis -f

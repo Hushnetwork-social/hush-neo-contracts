@@ -1,0 +1,13 @@
+# Test: Create a Community token via the factory
+# Run with: neoxp batch tests/03-community-token-create.batch
+#
+# Ephemeral chain — run with: neoxp run --discard --seconds-per-block 1
+# This test verifies the full flow: factory receives GAS, deploys a new
+# NEP-17 token, mints supply to the creator, and registers in the registry.
+
+transfer 1000 GAS genesis deployer
+transfer 100 GAS genesis alice
+contract deploy ./src/TokenFactory/bin/sc/TokenFactory.nef genesis
+# Alice creates a Community token (name=COFFEE, symbol=COFFEE, supply=1000000)
+# contract invoke TokenFactory createToken --account alice ...
+contract run TokenFactory getTokenCount --results
