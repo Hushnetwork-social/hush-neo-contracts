@@ -37,7 +37,7 @@ namespace Neo.SmartContract.Template
         private const byte Prefix_Owner       = 0xff;
 
         // ── Private storage helpers ───────────────────────────────────────────
-        // Convention: StorageGet*()/StorageSet*() are the raw read/write layer.
+        // StorageGet*/StorageSet* are the raw read/write layer.
         // No business-rule validation here — that belongs in public methods.
 
         private static string StorageGetName()
@@ -135,27 +135,54 @@ namespace Neo.SmartContract.Template
         // ── Owner ─────────────────────────────────────────────────────────────
 
         [Safe]
-        public static UInt160 GetOwner() => StorageGetOwner();
+        public static UInt160 getOwner() => StorageGetOwner();
 
         private static bool IsOwner() =>
-            Runtime.CheckWitness(GetOwner());
+            Runtime.CheckWitness(getOwner());
 
-        public delegate void OnSetOwnerDelegate(UInt160 previousOwner, UInt160 newOwner);
+        public delegate void OnOwnerChangedDelegate(UInt160 previousOwner, UInt160 newOwner);
 
-        [DisplayName("SetOwner")]
-        public static event OnSetOwnerDelegate OnSetOwner;
+        [DisplayName("OwnerChanged")]
+        public static event OnOwnerChangedDelegate OnOwnerChanged;
 
-        public static void SetOwner(UInt160 newOwner)
+        // newOwner may be UInt160.Zero to renounce ownership.
+        public static void setOwner(UInt160 newOwner)
         {
             if (!IsOwner())
-                throw new InvalidOperationException("No Authorization!");
+                throw new InvalidOperationException("No Authorization");
 
-            ExecutionEngine.Assert(newOwner.IsValid && !newOwner.IsZero, "owner must be valid");
+            ExecutionEngine.Assert(newOwner.IsValid, "Invalid owner address");
 
-            UInt160 previous = GetOwner();
+            UInt160 previous = getOwner();
             StorageSetOwner(newOwner);
-            OnSetOwner(previous, newOwner);
+            OnOwnerChanged(previous, newOwner);
         }
+
+        // ── Public read-only API ──────────────────────────────────────────────
+
+        [Safe]
+        public static string getName() => StorageGetName();
+
+        [Safe]
+        public static bool getMintable() => StorageGetMintable();
+
+        [Safe]
+        public static BigInteger getMaxSupply() => StorageGetMaxSupply();
+
+        [Safe]
+        public static bool isUpgradeable() => StorageGetUpgradeable();
+
+        [Safe]
+        public static bool isLocked() => StorageGetLocked();
+
+        [Safe]
+        public static bool isPausable() => StorageGetPausable();
+
+        [Safe]
+        public static bool isPaused() => StorageGetPaused();
+
+        [Safe]
+        public static string getMetadataUri() => StorageGetMetadataUri();
 
         // ── NEP17 base class overrides ────────────────────────────────────────
 
@@ -163,43 +190,108 @@ namespace Neo.SmartContract.Template
 
         public override byte Decimals { [Safe] get => StorageGetDecimals(); }
 
-        // Burn and Mint will be refactored in Phase 3 (caller-only burn, owner mint).
-        // Kept as scaffold-compatible stubs for Phase 2 build verification.
-        public static new void Burn(UInt160 account, BigInteger amount)
+        // Any token holder can burn their own tokens.
+        // The caller is identified via CallingScriptHash (contract-to-contract)
+        // or the transaction Sender (direct user invocation).
+        public static void burn(BigInteger amount)
         {
-            if (!IsOwner())
-                throw new InvalidOperationException("No Authorization!");
-            Nep17Token.Burn(account, amount);
+            ExecutionEngine.Assert(amount > 0, "Amount must be positive");
+
+            UInt160 caller = Runtime.CallingScriptHash;
+            if (caller == null || caller.IsZero)
+                caller = Runtime.Transaction.Sender;
+
+            ExecutionEngine.Assert(Runtime.CheckWitness(caller), "No Authorization");
+            Nep17Token.Burn(caller, amount);
         }
 
-        public static new void Mint(UInt160 to, BigInteger amount)
+        // Owner-only. Requires mintable=true and maxSupply cap enforcement.
+        public static void mint(UInt160 to, BigInteger amount)
         {
             if (!IsOwner())
-                throw new InvalidOperationException("No Authorization!");
+                throw new InvalidOperationException("No Authorization");
+
+            ExecutionEngine.Assert(amount > 0, "Amount must be positive");
+            ExecutionEngine.Assert(to.IsValid && !to.IsZero, "Invalid recipient");
+            ExecutionEngine.Assert(StorageGetMintable(), "Token is not mintable");
+
+            BigInteger maxSupply = StorageGetMaxSupply();
+            if (maxSupply > 0)
+            {
+                // Read TotalSupply directly from base class storage (Prefix_TotalSupply = 0x00)
+                BigInteger currentSupply = (BigInteger)Storage.Get(new[] { (byte)0x00 });
+                ExecutionEngine.Assert(currentSupply + amount <= maxSupply, "MaxSupply exceeded");
+            }
+
             Nep17Token.Mint(to, amount);
+        }
+
+        // Rejects all incoming NEP-17 transfers — this contract holds no tokens.
+        [DisplayName("onNEP17Payment")]
+        public static void OnNEP17Payment(UInt160 from, BigInteger amount, object data)
+        {
+            throw new InvalidOperationException("This contract does not accept token transfers.");
         }
 
         // ── Contract lifecycle ────────────────────────────────────────────────
 
         [Safe]
-        public static bool Verify() => IsOwner();
+        public static bool verify() => IsOwner();
 
-        // Full 10-parameter deploy parsing is implemented in Phase 3.
-        // Phase 2: owner stored via StorageSetOwner; other params pending.
+        // Deploy parameters (object[] of length 10, in order):
+        //   [0] name         string   — non-empty display name
+        //   [1] symbol       string   — non-empty ticker (e.g. "HCT")
+        //   [2] initialSupply BigInteger — >= 0; minted to owner on deploy
+        //   [3] decimals     byte     — 0-18
+        //   [4] owner        UInt160  — valid, non-zero
+        //   [5] mintable     bool     — stored as BigInteger 1/0
+        //   [6] maxSupply    BigInteger — 0 = uncapped; ignored if !mintable
+        //   [7] upgradeable  bool     — stored as BigInteger 1/0
+        //   [8] metadataUri  string   — IPFS URI; may be empty
+        //   [9] pausable     bool     — stored as BigInteger 1/0
         public static void _deploy(object data, bool update)
         {
             if (update) return;
 
-            if (data is null) data = Runtime.Transaction.Sender;
+            object[] args = (object[])data;
+            ExecutionEngine.Assert(args.Length == 10, "Expected 10 deploy parameters");
 
-            UInt160 initialOwner = (UInt160)data;
-            ExecutionEngine.Assert(initialOwner.IsValid && !initialOwner.IsZero, "owner must exist");
+            string name          = (string)args[0];
+            string symbol        = (string)args[1];
+            BigInteger initialSupply = (BigInteger)args[2];
+            byte decimals        = (byte)(BigInteger)args[3];
+            UInt160 owner        = (UInt160)args[4];
+            bool mintable        = (BigInteger)args[5] != 0;
+            BigInteger maxSupply = (BigInteger)args[6];
+            bool upgradeable     = (BigInteger)args[7] != 0;
+            string metadataUri   = (string)args[8];
+            bool pausable        = (BigInteger)args[9] != 0;
 
-            StorageSetOwner(initialOwner);
-            OnSetOwner(null, initialOwner);
+            ExecutionEngine.Assert(name.Length > 0, "Name must not be empty");
+            ExecutionEngine.Assert(symbol.Length > 0, "Symbol must not be empty");
+            ExecutionEngine.Assert(initialSupply >= 0, "InitialSupply must be >= 0");
+            ExecutionEngine.Assert(decimals <= 18, "Decimals must be 0-18");
+            ExecutionEngine.Assert(owner.IsValid && !owner.IsZero, "Invalid owner address");
+            ExecutionEngine.Assert(maxSupply >= 0, "MaxSupply must be >= 0");
+
+            StorageSetName(name);
+            StorageSetSymbol(symbol);
+            StorageSetDecimals(decimals);
+            StorageSetMintable(mintable);
+            StorageSetMaxSupply(maxSupply);
+            StorageSetUpgradeable(upgradeable);
+            StorageSetPausable(pausable);
+            StorageSetMetadataUri(metadataUri);
+            // locked=false and paused=false: storage default (key absent = false)
+
+            StorageSetOwner(owner);
+            OnOwnerChanged(null, owner);
+
+            if (initialSupply > 0)
+                Nep17Token.Mint(owner, initialSupply);
         }
 
-        public static void Update(ByteString nefFile, string manifest, object data = null)
+        public static void update(ByteString nefFile, string manifest, object data = null)
         {
             if (!IsOwner())
                 throw new InvalidOperationException("No authorization.");
