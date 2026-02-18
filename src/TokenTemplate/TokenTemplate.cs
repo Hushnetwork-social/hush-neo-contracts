@@ -10,10 +10,10 @@ using System.Numerics;
 namespace Neo.SmartContract.Template
 {
     [DisplayName(nameof(TokenTemplate))]
-    [ContractAuthor("<Your Name Or Company Here>", "<Your Public Email Here>")]
-    [ContractDescription("<Description Here>")]
-    [ContractVersion("<Version String Here>")]
-    [ContractSourceCode("https://github.com/neo-project/neo-devpack-dotnet/tree/master/src/Neo.SmartContract.Template/templates/neocontractnep17/TokenTemplate.cs")]
+    [ContractAuthor("HushNetwork", "dev@hushnetwork.social")]
+    [ContractDescription("HushNetwork Token Launcher — parameterized NEP-17 token template")]
+    [ContractVersion("1.0.0")]
+    [ContractSourceCode("https://github.com/Hushnetwork-social/hush-neo-contracts/tree/master/src/TokenTemplate/TokenTemplate.cs")]
     [ContractPermission(Permission.Any, Method.Any)]
     [SupportedStandards(NepStandard.Nep17)]
     public class TokenTemplate : Neo.SmartContract.Framework.Nep17Token

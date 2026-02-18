@@ -1,14 +1,38 @@
-# Test: TokenTemplate compiles and deploys
+# Test: TokenTemplate deploys and responds to basic NEP-17 calls
 # Run with: neoxp batch tests/01-token-template-deploy.batch --input devnet/devnet.neo-express --reset
 #
 # --reset resets to genesis before running (repeatable, no prior state needed)
-# Note: neoxp batch runs OFFLINE — stop any running neoxp node first (neoxp stop --input devnet/devnet.neo-express)
-# Note: contract run in batch context requires -a <account> (not -r/--results)
-# This test verifies the TokenTemplate contract deploys and basic NEP-17
-# methods return expected values.
+# IMPORTANT: Stop any running neoxp node first: neoxp stop --input devnet/devnet.neo-express
+#
+# Deploy parameters (10 required, passed as JSON array):
+#   [0] name          = "TestToken"
+#   [1] symbol        = "TTEST"
+#   [2] initialSupply = 1000000          (1M tokens, minted to deployer)
+#   [3] decimals      = 8
+#   [4] owner         = deployer address (devnet: NVPBT4gwfokzBXgqHTC68KWWop1M2AWgYY)
+#   [5] mintable      = 0                (false)
+#   [6] maxSupply     = 0                (uncapped)
+#   [7] upgradeable   = 0                (false)
+#   [8] metadataUri   = "ipfs://QmTest123"
+#   [9] pausable      = 0                (false)
 
+# Fund the deployer wallet
 transfer 1000 GAS genesis deployer
-contract deploy ../src/TokenTemplate/bin/sc/TokenTemplate.nef genesis
-contract run TokenTemplate symbol -a genesis
-contract run TokenTemplate decimals -a genesis
-contract run TokenTemplate totalSupply -a genesis
+
+# Deploy the compiled contract with 10-parameter deploy data.
+# The JSON array is passed directly as the data argument to _deploy.
+contract deploy ../src/TokenTemplate/bin/sc/TokenTemplate.nef deployer '["TestToken","TTEST",1000000,8,"NVPBT4gwfokzBXgqHTC68KWWop1M2AWgYY",0,0,0,"ipfs://QmTest123",0]'
+
+# Verify basic NEP-17 read methods
+contract run TokenTemplate symbol -a deployer
+contract run TokenTemplate decimals -a deployer
+contract run TokenTemplate totalSupply -a deployer
+
+# Verify custom getter methods
+contract run TokenTemplate getName -a deployer
+contract run TokenTemplate getOwner -a deployer
+contract run TokenTemplate getMintable -a deployer
+contract run TokenTemplate getMaxSupply -a deployer
+contract run TokenTemplate isUpgradeable -a deployer
+contract run TokenTemplate isPausable -a deployer
+contract run TokenTemplate getMetadataUri -a deployer
