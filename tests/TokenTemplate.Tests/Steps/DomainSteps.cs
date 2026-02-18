@@ -1,10 +1,12 @@
 #nullable enable
 using Neo;
 using Neo.Network.P2P.Payloads;
+using Neo.SmartContract.Manifest;
 using Neo.SmartContract.Testing;
 using NUnit.Framework;
 using Reqnroll;
 using System;
+using System.IO;
 using System.Numerics;
 using TokenTemplate.Tests.Support;
 using TestContext = TokenTemplate.Tests.Support.TestContext;
@@ -345,5 +347,73 @@ public class DomainSteps
     public void ThenTotalSupplyIs(long expected)
     {
         Assert.That(_context.Contract!.TotalSupply, Is.EqualTo((BigInteger)expected));
+    }
+
+    // ── Factory dependency guard steps ────────────────────────────────────────
+
+    /// <summary>
+    /// Verifies that onNEP17Payment always throws — the template never holds tokens.
+    /// Critical for FEAT-070: the factory must not accidentally forward tokens to a deployed instance.
+    /// </summary>
+    [When("a NEP-17 transfer is sent to the contract")]
+    public void WhenNep17TransferSentToContract()
+    {
+        _context.LastException = null;
+        try
+        {
+            _context.Engine.SetTransactionSigners(_context.OwnerSigner);
+            _context.Contract!.OnNEP17Payment(UInt160.Zero, 1_000_000_000, null);
+        }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    /// <summary>
+    /// Deploys with initialSupply > maxSupply — should be rejected by the H1 guard added to _deploy().
+    /// Critical for FEAT-070: factory must not produce tokens in an un-mintable broken state.
+    /// </summary>
+    [When(@"deploying the contract with initialSupply (\d+) and maxSupply (\d+)")]
+    public void WhenDeployingWithInitialSupplyExceedingMaxSupply(long initialSupply, long maxSupply)
+    {
+        _context.LastException = null;
+        try
+        {
+            _contractSteps.DeployWith(new DeployParams
+            {
+                Owner         = WalletAddress("walletA"),
+                InitialSupply = (BigInteger)initialSupply,
+                Mintable      = 1,
+                MaxSupply     = (BigInteger)maxSupply
+            });
+        }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    /// <summary>
+    /// Calls update() with deliberately different deploy parameters.
+    /// The double-deploy guard (if update) return in _deploy()) must prevent re-initialization.
+    /// Critical for FEAT-070: deployed token instances must not be re-initialized after a code upgrade.
+    /// </summary>
+    [When("the owner upgrades the contract with different deploy parameters")]
+    public void WhenOwnerUpgradesWithDifferentDeployParams()
+    {
+        _context.LastException = null;
+        try
+        {
+            var artifactsDir = Path.Combine(AppContext.BaseDirectory, "artifacts");
+            var nef      = File.ReadAllBytes(Path.Combine(artifactsDir, "TokenTemplate.nef"));
+            var manifest = File.ReadAllText(Path.Combine(artifactsDir, "TokenTemplate.manifest.json"));
+
+            // If the double-deploy guard were absent, these params would overwrite storage
+            var differentParams = new DeployParams
+            {
+                Name   = "CHANGED NAME",
+                Symbol = "CHG",
+                Owner  = _context.OwnerSigner.Account
+            }.ToDeployArray();
+
+            _context.Engine.SetTransactionSigners(_context.OwnerSigner);
+            _context.Contract!.update(nef, manifest, differentParams);
+        }
+        catch (Exception ex) { _context.LastException = ex; }
     }
 }

@@ -107,4 +107,7 @@ public abstract class TokenTemplateContract : SmartContract
 
     [DisplayName("burn")]
     public abstract void burn(BigInteger? amount);
+
+    [DisplayName("onNEP17Payment")]
+    public abstract void OnNEP17Payment(UInt160? from, BigInteger? amount, object? data = null);
 }

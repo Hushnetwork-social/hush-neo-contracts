@@ -319,6 +319,8 @@ namespace Neo.SmartContract.Template
             ExecutionEngine.Assert(decimals <= 18, "Decimals must be 0-18");
             ExecutionEngine.Assert(owner.IsValid && !owner.IsZero, "Invalid owner address");
             ExecutionEngine.Assert(maxSupply >= 0, "MaxSupply must be >= 0");
+            if (maxSupply > 0)
+                ExecutionEngine.Assert(initialSupply <= maxSupply, "InitialSupply must not exceed MaxSupply");
 
             StorageSetName(name);
             StorageSetSymbol(symbol);

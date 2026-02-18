@@ -105,7 +105,7 @@ namespace TokenTemplate.Tests.Features
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/EdgeCases.feature.ndjson", 11);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/EdgeCases.feature.ndjson", 14);
         }
         
         [global::NUnit.Framework.TestAttribute()]
@@ -404,6 +404,111 @@ namespace TokenTemplate.Tests.Features
 #line hidden
 #line 48
     await testRunner.ThenAsync("getMetadataUri() returns \"\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Contract rejects any incoming NEP-17 token transfer")]
+        public async global::System.Threading.Tasks.Task ContractRejectsAnyIncomingNEP_17TokenTransfer()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "9";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Contract rejects any incoming NEP-17 token transfer", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 52
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 53
+    await testRunner.GivenAsync("the TokenTemplate test engine is initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 54
+    await testRunner.AndAsync("a freshly deployed TokenTemplate contract", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 55
+    await testRunner.WhenAsync("a NEP-17 transfer is sent to the contract", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 56
+    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Deploy with initialSupply exceeding maxSupply is rejected")]
+        public async global::System.Threading.Tasks.Task DeployWithInitialSupplyExceedingMaxSupplyIsRejected()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "10";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Deploy with initialSupply exceeding maxSupply is rejected", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 58
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 59
+    await testRunner.GivenAsync("the TokenTemplate test engine is initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 60
+    await testRunner.WhenAsync("deploying the contract with initialSupply 1000 and maxSupply 100", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 61
+    await testRunner.ThenAsync("the deploy is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Contract state is preserved after an upgrade (double-deploy guard)")]
+        public async global::System.Threading.Tasks.Task ContractStateIsPreservedAfterAnUpgradeDouble_DeployGuard()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "11";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Contract state is preserved after an upgrade (double-deploy guard)", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 63
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 64
+    await testRunner.GivenAsync("the TokenTemplate test engine is initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 65
+    await testRunner.AndAsync("the contract is deployed with owner walletA, upgradeable true", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 66
+    await testRunner.WhenAsync("the owner upgrades the contract with different deploy parameters", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 67
+    await testRunner.ThenAsync("symbol() returns \"TST\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();

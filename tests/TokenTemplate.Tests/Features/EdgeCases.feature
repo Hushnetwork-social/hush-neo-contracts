@@ -46,3 +46,22 @@ Feature: Edge Cases and Deployment Guards
     Given the TokenTemplate test engine is initialized
     When the contract is deployed with metadataUri ""
     Then getMetadataUri() returns ""
+
+  # ── Factory dependency guards ──────────────────────────────────────────────
+
+  Scenario: Contract rejects any incoming NEP-17 token transfer
+    Given the TokenTemplate test engine is initialized
+    And a freshly deployed TokenTemplate contract
+    When a NEP-17 transfer is sent to the contract
+    Then the transaction is aborted
+
+  Scenario: Deploy with initialSupply exceeding maxSupply is rejected
+    Given the TokenTemplate test engine is initialized
+    When deploying the contract with initialSupply 1000 and maxSupply 100
+    Then the deploy is aborted
+
+  Scenario: Contract state is preserved after an upgrade (double-deploy guard)
+    Given the TokenTemplate test engine is initialized
+    And the contract is deployed with owner walletA, upgradeable true
+    When the owner upgrades the contract with different deploy parameters
+    Then symbol() returns "TST"
