@@ -1,4 +1,3 @@
-using Neo.SmartContract;
 using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Attributes;
 using Neo.SmartContract.Framework.Native;
@@ -7,13 +6,12 @@ using Neo.SmartContract.Framework.Services;
 using System;
 using System.ComponentModel;
 
-namespace Neo.SmartContract.Template
+namespace HushNetwork.Contracts
 {
     [DisplayName(nameof(TokenFactory))]
-    [ContractAuthor("<Your Name Or Company Here>", "<Your Public Email Here>")]
-    [ContractDescription( "<Description Here>")]
-    [ContractVersion("<Version String Here>")]
-    [ContractSourceCode("https://github.com/neo-project/neo-devpack-dotnet/tree/master/src/Neo.SmartContract.Template/templates/neocontractowner/TokenFactory.cs")]
+    [ContractAuthor("HushNetwork", "dev@hushnetwork.social")]
+    [ContractDescription("Token Factory — deploys NEP-17 TokenTemplate instances on payment")]
+    [ContractVersion("1.0.0")]
     [ContractPermission(Permission.Any, Method.Any)]
     public class TokenFactory : Neo.SmartContract.Framework.SmartContract
     {
@@ -49,34 +47,25 @@ namespace Neo.SmartContract.Template
 
         #endregion
 
-        // TODO: Replace it with your methods.
-        public static string MyMethod()
-        {
-            return Storage.Get(Storage.CurrentReadOnlyContext, "Hello");
-        }
-
-        // This will be executed during deploy
+        // This will be executed during deploy and upgrade
         public static void _deploy(object data, bool update)
         {
             if (update)
             {
-                // This will be executed during update
                 return;
             }
 
-            // Init method, you must deploy the contract with the owner as an argument, or it will take the sender
             if (data is null) data = Runtime.Transaction.Sender;
 
             UInt160 initialOwner = (UInt160)data;
 
-            ExecutionEngine.Assert(initialOwner.IsValid && !initialOwner.IsZero, "owner must exists");
+            ExecutionEngine.Assert(initialOwner.IsValid && !initialOwner.IsZero, "owner must exist");
 
             Storage.Put(new[] { Prefix_Owner }, initialOwner);
             OnSetOwner(null, initialOwner);
-            Storage.Put(Storage.CurrentContext, "Hello", "World");
         }
 
-        public static void Update(ByteString nefFile, string manifest, object? data = null)
+        public static void Update(ByteString nefFile, string manifest, object data = null)
         {
             if (!IsOwner())
                 throw new InvalidOperationException("No authorization.");
