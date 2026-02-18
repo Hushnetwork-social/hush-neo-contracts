@@ -11,22 +11,131 @@ namespace Neo.SmartContract.Template
 {
     [DisplayName(nameof(TokenTemplate))]
     [ContractAuthor("<Your Name Or Company Here>", "<Your Public Email Here>")]
-    [ContractDescription( "<Description Here>")]
+    [ContractDescription("<Description Here>")]
     [ContractVersion("<Version String Here>")]
     [ContractSourceCode("https://github.com/neo-project/neo-devpack-dotnet/tree/master/src/Neo.SmartContract.Template/templates/neocontractnep17/TokenTemplate.cs")]
     [ContractPermission(Permission.Any, Method.Any)]
     [SupportedStandards(NepStandard.Nep17)]
     public class TokenTemplate : Neo.SmartContract.Framework.Nep17Token
     {
-        #region Owner
+        // ── Storage prefix constants ──────────────────────────────────────────
+        // Base class reserves:
+        //   0x00 — Prefix_TotalSupply (TokenContract)
+        //   0x01 — Prefix_Balance     (TokenContract, per-account StorageMap)
+        // Custom keys use 0x10–0x19 range. Owner uses 0xff (scaffold compat).
 
-        private const byte Prefix_Owner = 0xff;
+        private const byte Prefix_Name        = 0x10;
+        private const byte Prefix_Symbol      = 0x11;
+        private const byte Prefix_Decimals    = 0x12;
+        private const byte Prefix_Mintable    = 0x13;
+        private const byte Prefix_MaxSupply   = 0x14;
+        private const byte Prefix_Upgradeable = 0x15;
+        private const byte Prefix_Locked      = 0x16;
+        private const byte Prefix_Pausable    = 0x17;
+        private const byte Prefix_Paused      = 0x18;
+        private const byte Prefix_MetadataUri = 0x19;
+        private const byte Prefix_Owner       = 0xff;
+
+        // ── Private storage helpers ───────────────────────────────────────────
+        // Convention: StorageGet*()/StorageSet*() are the raw read/write layer.
+        // No business-rule validation here — that belongs in public methods.
+
+        private static string StorageGetName()
+        {
+            ByteString raw = Storage.Get(new[] { Prefix_Name });
+            return raw is null ? "" : (string)raw;
+        }
+        private static void StorageSetName(string value) =>
+            Storage.Put(new[] { Prefix_Name }, value);
+
+        private static string StorageGetSymbol()
+        {
+            ByteString raw = Storage.Get(new[] { Prefix_Symbol });
+            return raw is null ? "" : (string)raw;
+        }
+        private static void StorageSetSymbol(string value) =>
+            Storage.Put(new[] { Prefix_Symbol }, value);
+
+        private static byte StorageGetDecimals()
+        {
+            ByteString raw = Storage.Get(new[] { Prefix_Decimals });
+            return raw is null ? (byte)0 : (byte)(BigInteger)raw;
+        }
+        private static void StorageSetDecimals(byte value) =>
+            Storage.Put(new[] { Prefix_Decimals }, (BigInteger)value);
+
+        private static bool StorageGetMintable() =>
+            (BigInteger)Storage.Get(new[] { Prefix_Mintable }) != 0;
+        private static void StorageSetMintable(bool value)
+        {
+            if (value)
+                Storage.Put(new[] { Prefix_Mintable }, (BigInteger)1);
+            else
+                Storage.Delete(new[] { Prefix_Mintable });
+        }
+
+        private static BigInteger StorageGetMaxSupply() =>
+            (BigInteger)Storage.Get(new[] { Prefix_MaxSupply });
+        private static void StorageSetMaxSupply(BigInteger value) =>
+            Storage.Put(new[] { Prefix_MaxSupply }, value);
+
+        private static bool StorageGetUpgradeable() =>
+            (BigInteger)Storage.Get(new[] { Prefix_Upgradeable }) != 0;
+        private static void StorageSetUpgradeable(bool value)
+        {
+            if (value)
+                Storage.Put(new[] { Prefix_Upgradeable }, (BigInteger)1);
+            else
+                Storage.Delete(new[] { Prefix_Upgradeable });
+        }
+
+        private static bool StorageGetLocked() =>
+            (BigInteger)Storage.Get(new[] { Prefix_Locked }) != 0;
+        private static void StorageSetLocked(bool value)
+        {
+            if (value)
+                Storage.Put(new[] { Prefix_Locked }, (BigInteger)1);
+            else
+                Storage.Delete(new[] { Prefix_Locked });
+        }
+
+        private static bool StorageGetPausable() =>
+            (BigInteger)Storage.Get(new[] { Prefix_Pausable }) != 0;
+        private static void StorageSetPausable(bool value)
+        {
+            if (value)
+                Storage.Put(new[] { Prefix_Pausable }, (BigInteger)1);
+            else
+                Storage.Delete(new[] { Prefix_Pausable });
+        }
+
+        private static bool StorageGetPaused() =>
+            (BigInteger)Storage.Get(new[] { Prefix_Paused }) != 0;
+        private static void StorageSetPaused(bool value)
+        {
+            if (value)
+                Storage.Put(new[] { Prefix_Paused }, (BigInteger)1);
+            else
+                Storage.Delete(new[] { Prefix_Paused });
+        }
+
+        private static string StorageGetMetadataUri()
+        {
+            ByteString raw = Storage.Get(new[] { Prefix_MetadataUri });
+            return raw is null ? "" : (string)raw;
+        }
+        private static void StorageSetMetadataUri(string value) =>
+            Storage.Put(new[] { Prefix_MetadataUri }, value);
+
+        private static UInt160 StorageGetOwner() =>
+            (UInt160)Storage.Get(new[] { Prefix_Owner });
+        private static void StorageSetOwner(UInt160 value) =>
+            Storage.Put(new[] { Prefix_Owner }, value);
+
+        // ── Owner ─────────────────────────────────────────────────────────────
 
         [Safe]
-        public static UInt160 GetOwner()
-        {
-            return (UInt160)Storage.Get(new[] { Prefix_Owner });
-        }
+        public static UInt160 GetOwner() => StorageGetOwner();
 
         private static bool IsOwner() =>
             Runtime.CheckWitness(GetOwner());
@@ -44,20 +153,18 @@ namespace Neo.SmartContract.Template
             ExecutionEngine.Assert(newOwner.IsValid && !newOwner.IsZero, "owner must be valid");
 
             UInt160 previous = GetOwner();
-            Storage.Put(new[] { Prefix_Owner }, newOwner);
+            StorageSetOwner(newOwner);
             OnSetOwner(previous, newOwner);
         }
 
-        #endregion
+        // ── NEP17 base class overrides ────────────────────────────────────────
 
-        #region NEP17
+        public override string Symbol { [Safe] get => StorageGetSymbol(); }
 
-        // TODO: Replace "EXAMPLE" with a short name all UPPERCASE 3-8 characters
-        public override string Symbol { [Safe] get => "EXAMPLE"; }
+        public override byte Decimals { [Safe] get => StorageGetDecimals(); }
 
-        // NOTE: Valid Range 0-31
-        public override byte Decimals { [Safe] get => 8; }
-
+        // Burn and Mint will be refactored in Phase 3 (caller-only burn, owner mint).
+        // Kept as scaffold-compatible stubs for Phase 2 build verification.
         public static new void Burn(UInt160 account, BigInteger amount)
         {
             if (!IsOwner())
@@ -72,39 +179,24 @@ namespace Neo.SmartContract.Template
             Nep17Token.Mint(to, amount);
         }
 
-        #endregion
+        // ── Contract lifecycle ────────────────────────────────────────────────
 
-        // When this contract address is included in the transaction signature,
-        // this method will be triggered as a VerificationTrigger to verify that the signature is correct.
-        // For example, this method needs to be called when withdrawing token from the contract.
         [Safe]
         public static bool Verify() => IsOwner();
 
-        // TODO: Replace it with your methods.
-        public static string MyMethod()
-        {
-            return Storage.Get("Hello");
-        }
-
-        // This will be executed during deploy
+        // Full 10-parameter deploy parsing is implemented in Phase 3.
+        // Phase 2: owner stored via StorageSetOwner; other params pending.
         public static void _deploy(object data, bool update)
         {
-            if (update)
-            {
-                // This will be executed during update
-                return;
-            }
+            if (update) return;
 
-            // Init method, you must deploy the contract with the owner as an argument, or it will take the sender
             if (data is null) data = Runtime.Transaction.Sender;
 
             UInt160 initialOwner = (UInt160)data;
+            ExecutionEngine.Assert(initialOwner.IsValid && !initialOwner.IsZero, "owner must exist");
 
-            ExecutionEngine.Assert(initialOwner.IsValid && !initialOwner.IsZero, "owner must exists");
-
-            Storage.Put(new[] { Prefix_Owner }, initialOwner);
+            StorageSetOwner(initialOwner);
             OnSetOwner(null, initialOwner);
-            Storage.Put("Hello", "World");
         }
 
         public static void Update(ByteString nefFile, string manifest, object data = null)
@@ -113,7 +205,5 @@ namespace Neo.SmartContract.Template
                 throw new InvalidOperationException("No authorization.");
             ContractManagement.Update(nefFile, manifest, data);
         }
-
-        // NOTE: NEP-17 contracts "SHOULD NOT" have "Destroy" method
     }
 }
