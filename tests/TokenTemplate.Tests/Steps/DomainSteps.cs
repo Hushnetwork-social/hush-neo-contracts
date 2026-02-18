@@ -1,0 +1,349 @@
+#nullable enable
+using Neo;
+using Neo.Network.P2P.Payloads;
+using Neo.SmartContract.Testing;
+using NUnit.Framework;
+using Reqnroll;
+using System;
+using System.Numerics;
+using TokenTemplate.Tests.Support;
+using TestContext = TokenTemplate.Tests.Support.TestContext;
+
+namespace TokenTemplate.Tests.Steps;
+
+/// <summary>
+/// Domain step definitions for Phase 6 feature files:
+/// MintBurn, OwnerManagement, UpgradeableLock, Pausable, EdgeCases.
+/// Covers: deploy with multiple flags, mint, burn, setOwner, lock, pause, setPausable.
+/// </summary>
+[Binding]
+public class DomainSteps
+{
+    private readonly TestContext _context;
+    private readonly ContractSteps _contractSteps;
+
+    public DomainSteps(TestContext context, ContractSteps contractSteps)
+    {
+        _context = context;
+        _contractSteps = contractSteps;
+    }
+
+    // ── Wallet helpers ────────────────────────────────────────────────────────
+
+    private Signer GetOrCreateWallet(string name)
+    {
+        if (!_context.NamedSigners.TryGetValue(name, out var signer))
+        {
+            signer = TestEngine.GetNewSigner();
+            _context.NamedSigners[name] = signer;
+        }
+        return signer;
+    }
+
+    private UInt160 WalletAddress(string name) => GetOrCreateWallet(name).Account;
+
+    private void SignAs(string walletName) =>
+        _context.Engine.SetTransactionSigners(GetOrCreateWallet(walletName));
+
+    // ── Deploy steps (multi-flag variants) ────────────────────────────────────
+
+    [Given(@"the contract is deployed with owner walletA")]
+    public void GivenDeployedWithOwnerWalletA()
+    {
+        _contractSteps.DeployWith(new DeployParams { Owner = WalletAddress("walletA") });
+    }
+
+    [Given(@"the contract is deployed with owner walletA, mintable (\w+)")]
+    public void GivenDeployedWithOwnerAndMintable(string mintableStr)
+    {
+        _contractSteps.DeployWith(new DeployParams
+        {
+            Owner    = WalletAddress("walletA"),
+            Mintable = mintableStr == "true" ? 1 : 0
+        });
+    }
+
+    [Given(@"the contract is deployed with owner walletA, mintable (\w+), initialSupply (\d+)")]
+    public void GivenDeployedWithOwnerMintableSupply(string mintableStr, long supply)
+    {
+        _contractSteps.DeployWith(new DeployParams
+        {
+            Owner         = WalletAddress("walletA"),
+            Mintable      = mintableStr == "true" ? 1 : 0,
+            InitialSupply = (BigInteger)supply
+        });
+    }
+
+    [Given(@"the contract is deployed with owner walletA, mintable (\w+), initialSupply (\d+), maxSupply (\d+)")]
+    public void GivenDeployedWithOwnerMintableSupplyMax(string mintableStr, long supply, long maxSupply)
+    {
+        _contractSteps.DeployWith(new DeployParams
+        {
+            Owner         = WalletAddress("walletA"),
+            Mintable      = mintableStr == "true" ? 1 : 0,
+            InitialSupply = (BigInteger)supply,
+            MaxSupply     = (BigInteger)maxSupply
+        });
+    }
+
+    [Given(@"the contract is deployed with owner walletA, upgradeable (\w+)")]
+    public void GivenDeployedWithOwnerUpgradeable(string upgradeableStr)
+    {
+        _contractSteps.DeployWith(new DeployParams
+        {
+            Owner       = WalletAddress("walletA"),
+            Upgradeable = upgradeableStr == "true" ? 1 : 0
+        });
+    }
+
+    [Given(@"the contract is deployed with owner walletA, upgradeable (\w+), pausable (\w+)")]
+    public void GivenDeployedWithOwnerUpgradeablePausable(string upgradeableStr, string pausableStr)
+    {
+        _contractSteps.DeployWith(new DeployParams
+        {
+            Owner       = WalletAddress("walletA"),
+            Upgradeable = upgradeableStr == "true" ? 1 : 0,
+            Pausable    = pausableStr == "true" ? 1 : 0
+        });
+    }
+
+    [Given(@"the contract is deployed with owner walletA, pausable (\w+)")]
+    public void GivenDeployedWithOwnerPausable(string pausableStr)
+    {
+        _contractSteps.DeployWith(new DeployParams
+        {
+            Owner    = WalletAddress("walletA"),
+            Pausable = pausableStr == "true" ? 1 : 0
+        });
+    }
+
+    [Given(@"the contract is deployed with owner walletA, pausable (\w+), initialSupply (\d+)")]
+    public void GivenDeployedWithOwnerPausableSupply(string pausableStr, long supply)
+    {
+        _contractSteps.DeployWith(new DeployParams
+        {
+            Owner         = WalletAddress("walletA"),
+            Pausable      = pausableStr == "true" ? 1 : 0,
+            InitialSupply = (BigInteger)supply
+        });
+    }
+
+    // ── Deploy steps that expect failure ──────────────────────────────────────
+
+    [When(@"deploying the contract with decimals (\d+)")]
+    public void WhenDeployingWithDecimalsThatMayFail(int decimals)
+    {
+        _context.LastException = null;
+        try
+        {
+            _contractSteps.DeployWith(new DeployParams
+            {
+                Decimals = (BigInteger)decimals,
+                Owner    = WalletAddress("walletA")
+            });
+        }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [When(@"deploying the contract with symbol """"")]
+    public void WhenDeployingWithEmptySymbol()
+    {
+        _context.LastException = null;
+        try
+        {
+            _contractSteps.DeployWith(new DeployParams
+            {
+                Symbol = "",
+                Owner  = WalletAddress("walletA")
+            });
+        }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [When("deploying the contract with zero address as owner")]
+    public void WhenDeployingWithZeroOwner()
+    {
+        _context.LastException = null;
+        try
+        {
+            _contractSteps.DeployWith(new DeployParams { Owner = UInt160.Zero });
+        }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [Then("the deploy is aborted")]
+    public void ThenDeployIsAborted()
+    {
+        Assert.That(_context.LastException, Is.Not.Null,
+            "Expected deploy to be aborted (exception), but no exception was thrown.");
+    }
+
+    // ── Burn steps ────────────────────────────────────────────────────────────
+
+    [When(@"walletA calls burn (\d+)")]
+    public void WhenWalletACallsBurn(long amount)
+    {
+        SignAs("walletA");
+        _context.LastException = null;
+        try { _context.Contract!.burn((BigInteger)amount); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    // ── Mint steps ────────────────────────────────────────────────────────────
+
+    [When(@"the owner calls mint (\w+) (\d+)")]
+    public void WhenOwnerCallsMint(string targetWallet, long amount)
+    {
+        SignAs("walletA");
+        _context.LastException = null;
+        try { _context.Contract!.mint(WalletAddress(targetWallet), (BigInteger)amount); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [When(@"walletA calls mint (\w+) (\d+)")]
+    public void WhenWalletACallsMint(string targetWallet, long amount)
+    {
+        SignAs("walletA");
+        _context.LastException = null;
+        try { _context.Contract!.mint(WalletAddress(targetWallet), (BigInteger)amount); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [When(@"walletB calls mint (\w+) (\d+)")]
+    public void WhenWalletBCallsMint(string targetWallet, long amount)
+    {
+        SignAs("walletB");
+        _context.LastException = null;
+        try { _context.Contract!.mint(WalletAddress(targetWallet), (BigInteger)amount); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    // ── Owner management steps ────────────────────────────────────────────────
+
+    [When(@"walletA calls setOwner walletB")]
+    public void WhenWalletACallsSetOwnerWalletB()
+    {
+        SignAs("walletA");
+        _context.LastException = null;
+        try { _context.Contract!.setOwner(WalletAddress("walletB")); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [When(@"walletB calls setOwner walletC")]
+    public void WhenWalletBCallsSetOwnerWalletC()
+    {
+        SignAs("walletB");
+        _context.LastException = null;
+        try { _context.Contract!.setOwner(WalletAddress("walletC")); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [When(@"walletA calls setOwner zero")]
+    public void WhenWalletACallsSetOwnerZero()
+    {
+        SignAs("walletA");
+        _context.LastException = null;
+        try { _context.Contract!.setOwner(UInt160.Zero); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [Given("walletA has renounced ownership")]
+    public void GivenWalletARenounced()
+    {
+        SignAs("walletA");
+        _context.Contract!.setOwner(UInt160.Zero);
+    }
+
+    [Then(@"getOwner\(\) is walletB")]
+    public void ThenGetOwnerIsWalletB()
+    {
+        Assert.That(_context.Contract!.getOwner(), Is.EqualTo(WalletAddress("walletB")));
+    }
+
+    [Then(@"getOwner\(\) is zero address")]
+    public void ThenGetOwnerIsZeroAddress()
+    {
+        Assert.That(_context.Contract!.getOwner(), Is.EqualTo(UInt160.Zero));
+    }
+
+    // ── Lock steps ────────────────────────────────────────────────────────────
+
+    [When("the owner calls lock")]
+    public void WhenOwnerCallsLock()
+    {
+        SignAs("walletA");
+        _context.LastException = null;
+        try { _context.Contract!.Lock(); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [When(@"walletB calls lock")]
+    public void WhenWalletBCallsLock()
+    {
+        SignAs("walletB");
+        _context.LastException = null;
+        try { _context.Contract!.Lock(); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [Given("the owner has locked the contract")]
+    public void GivenOwnerHasLockedContract()
+    {
+        SignAs("walletA");
+        _context.Contract!.Lock();
+    }
+
+    // ── Pause steps ───────────────────────────────────────────────────────────
+
+    [When("the owner calls pause")]
+    public void WhenOwnerCallsPause()
+    {
+        SignAs("walletA");
+        _context.LastException = null;
+        try { _context.Contract!.pause(); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [When("the owner calls unpause")]
+    public void WhenOwnerCallsUnpause()
+    {
+        SignAs("walletA");
+        _context.LastException = null;
+        try { _context.Contract!.unpause(); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [When(@"walletB calls pause")]
+    public void WhenWalletBCallsPause()
+    {
+        SignAs("walletB");
+        _context.LastException = null;
+        try { _context.Contract!.pause(); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [When(@"the owner calls setPausable (\w+)")]
+    public void WhenOwnerCallsSetPausable(string valueStr)
+    {
+        SignAs("walletA");
+        bool value = valueStr == "true";
+        _context.LastException = null;
+        try { _context.Contract!.setPausable(value); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [Given("the owner has paused the contract")]
+    public void GivenOwnerHasPausedContract()
+    {
+        SignAs("walletA");
+        _context.Contract!.pause();
+    }
+
+    // ── Numeric assertion steps ────────────────────────────────────────────────
+
+    [Then(@"totalSupply\(\) is (\d+)")]
+    public void ThenTotalSupplyIs(long expected)
+    {
+        Assert.That(_context.Contract!.TotalSupply, Is.EqualTo((BigInteger)expected));
+    }
+}

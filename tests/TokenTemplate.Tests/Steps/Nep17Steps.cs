@@ -169,6 +169,8 @@ public class Nep17Steps
     [Then(@"balanceOf walletA is (\d+)")]
     public void ThenBalanceOfWalletAIs(long expected)
     {
+        Assert.That(_context.LastException, Is.Null,
+            $"Previous step threw: {_context.LastException?.Message}");
         Assert.That(_context.Contract!.BalanceOf(WalletAddress("walletA")),
             Is.EqualTo((BigInteger)expected));
     }
@@ -176,6 +178,8 @@ public class Nep17Steps
     [Then(@"balanceOf walletB is (\d+)")]
     public void ThenBalanceOfWalletBIs(long expected)
     {
+        Assert.That(_context.LastException, Is.Null,
+            $"Previous step threw: {_context.LastException?.Message}");
         Assert.That(_context.Contract!.BalanceOf(WalletAddress("walletB")),
             Is.EqualTo((BigInteger)expected));
     }

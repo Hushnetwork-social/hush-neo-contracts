@@ -241,16 +241,12 @@ namespace Neo.SmartContract.Template
         }
 
         // Any token holder can burn their own tokens.
-        // The caller is identified via CallingScriptHash (contract-to-contract)
-        // or the transaction Sender (direct user invocation).
+        // The caller is always identified via the transaction Sender.
         public static void burn(BigInteger amount)
         {
             ExecutionEngine.Assert(amount > 0, "Amount must be positive");
 
-            UInt160 caller = Runtime.CallingScriptHash;
-            if (caller == null || caller.IsZero)
-                caller = Runtime.Transaction.Sender;
-
+            UInt160 caller = Runtime.Transaction.Sender;
             ExecutionEngine.Assert(Runtime.CheckWitness(caller), "No Authorization");
             Nep17Token.Burn(caller, amount);
         }
