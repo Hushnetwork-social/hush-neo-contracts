@@ -33,6 +33,9 @@ public class TestContext
     /// Populated by ContractSteps.DeployContract() via engine.CreateGasWatcher().
     /// </summary>
     public long GasConsumedByLastDeploy { get; set; }
+
+    /// <summary>The owner address used in the most recent Deploy() call.</summary>
+    public UInt160 LastDeployedOwner { get; set; } = UInt160.Zero;
 }
 
 /// <summary>

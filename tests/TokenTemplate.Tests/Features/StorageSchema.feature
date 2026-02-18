@@ -4,7 +4,7 @@ Feature: TokenTemplate — Storage Schema
   rules are applied. Step definitions are implemented in Phase 5.
 
   Background:
-    Given a freshly deployed TokenTemplate contract
+    Given the TokenTemplate test engine is initialized
 
   # ── String properties ────────────────────────────────────────────────────
 

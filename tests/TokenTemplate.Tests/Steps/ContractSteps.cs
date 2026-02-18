@@ -134,6 +134,9 @@ public class ContractSteps
             $"({_context.GasConsumedByLastDeploy / 100_000_000m} GAS).");
     }
 
+    /// <summary>Public helper so other step classes can trigger a deploy.</summary>
+    public void DeployWith(DeployParams deployParams) => DeployContract(deployParams);
+
     private void DeployContract(DeployParams deployParams)
     {
         string nefPath      = Path.Combine(ArtifactsPath, "TokenTemplate.nef");
@@ -153,5 +156,6 @@ public class ContractSteps
         _context.Contract = _context.Engine.Deploy<TokenTemplateContract>(
             nef, manifest, deployParams.ToDeployArray());
         _context.GasConsumedByLastDeploy = watcher.Value;
+        _context.LastDeployedOwner = deployParams.Owner;
     }
 }

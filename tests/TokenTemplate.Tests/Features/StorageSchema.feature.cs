@@ -110,7 +110,7 @@ namespace TokenTemplate.Tests.Features
 #line 6
   #line hidden
 #line 7
-    await testRunner.GivenAsync("a freshly deployed TokenTemplate contract", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.GivenAsync("the TokenTemplate test engine is initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
         }
         
