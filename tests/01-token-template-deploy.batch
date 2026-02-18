@@ -1,12 +1,14 @@
 # Test: TokenTemplate compiles and deploys
-# Run with: neoxp batch tests/01-token-template-deploy.batch
+# Run with: neoxp batch tests/01-token-template-deploy.batch --input devnet/devnet.neo-express --reset
 #
-# Ephemeral chain — run with: neoxp run --discard --seconds-per-block 1
+# --reset resets to genesis before running (repeatable, no prior state needed)
+# Note: neoxp batch runs OFFLINE — stop any running neoxp node first (neoxp stop --input devnet/devnet.neo-express)
+# Note: contract run in batch context requires -a <account> (not -r/--results)
 # This test verifies the TokenTemplate contract deploys and basic NEP-17
 # methods return expected values.
 
 transfer 1000 GAS genesis deployer
-contract deploy ./src/TokenTemplate/bin/sc/TokenTemplate.nef genesis
-contract run TokenTemplate symbol --results
-contract run TokenTemplate decimals --results
-contract run TokenTemplate totalSupply --results
+contract deploy ../src/TokenTemplate/bin/sc/TokenTemplate.nef genesis
+contract run TokenTemplate symbol -a genesis
+contract run TokenTemplate decimals -a genesis
+contract run TokenTemplate totalSupply -a genesis
