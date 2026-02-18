@@ -145,6 +145,11 @@ namespace Neo.SmartContract.Template
         [DisplayName("OwnerChanged")]
         public static event OnOwnerChangedDelegate OnOwnerChanged;
 
+        public delegate void OnLockedDelegate(ulong timestamp);
+
+        [DisplayName("Locked")]
+        public static event OnLockedDelegate OnLocked;
+
         // newOwner may be UInt160.Zero to renounce ownership.
         public static void setOwner(UInt160 newOwner)
         {
@@ -156,6 +161,17 @@ namespace Neo.SmartContract.Template
             UInt160 previous = getOwner();
             StorageSetOwner(newOwner);
             OnOwnerChanged(previous, newOwner);
+        }
+
+        // Owner can permanently renounce upgrade rights. Cannot be undone.
+        // Also blocks setPausable() but NOT pause()/unpause() (runtime vs property).
+        [DisplayName("lock")]
+        public static void Lock()
+        {
+            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(!StorageGetLocked(), "Already locked");
+            StorageSetLocked(true);
+            OnLocked(Runtime.Time);
         }
 
         // ── Public read-only API ──────────────────────────────────────────────
@@ -184,11 +200,45 @@ namespace Neo.SmartContract.Template
         [Safe]
         public static string getMetadataUri() => StorageGetMetadataUri();
 
+        // ── Pausable controls ─────────────────────────────────────────────────
+        // setPausable is a property-level change — requires upgradeable=true AND !locked.
+        // pause/unpause are runtime controls — allowed while locked if pausable=true.
+
+        public static void setPausable(bool value)
+        {
+            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(StorageGetUpgradeable(), "Contract is not upgradeable");
+            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            StorageSetPausable(value);
+        }
+
+        public static void pause()
+        {
+            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(StorageGetPausable(), "Token is not pausable");
+            StorageSetPaused(true);
+        }
+
+        public static void unpause()
+        {
+            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(StorageGetPausable(), "Token is not pausable");
+            StorageSetPaused(false);
+        }
+
         // ── NEP17 base class overrides ────────────────────────────────────────
 
         public override string Symbol { [Safe] get => StorageGetSymbol(); }
 
         public override byte Decimals { [Safe] get => StorageGetDecimals(); }
+
+        // Blocks all token transfers while the contract is paused.
+        // Transfer is static in Nep17Token — shadow with `new` and delegate to base class.
+        public static new bool Transfer(UInt160 from, UInt160 to, BigInteger amount, object data = null)
+        {
+            ExecutionEngine.Assert(!StorageGetPaused(), "Token transfers are paused");
+            return Nep17Token.Transfer(from, to, amount, data);
+        }
 
         // Any token holder can burn their own tokens.
         // The caller is identified via CallingScriptHash (contract-to-contract)
@@ -293,8 +343,9 @@ namespace Neo.SmartContract.Template
 
         public static void update(ByteString nefFile, string manifest, object data = null)
         {
-            if (!IsOwner())
-                throw new InvalidOperationException("No authorization.");
+            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(StorageGetUpgradeable(), "Contract is not upgradeable");
+            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
             ContractManagement.Update(nefFile, manifest, data);
         }
     }
