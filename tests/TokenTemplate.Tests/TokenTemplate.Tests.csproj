@@ -21,13 +21,21 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Compiled contract artifact (built by src/TokenTemplate) -->
+    <!-- Compiled contract artifacts (built by src/TokenTemplate) -->
     <None Include="..\..\src\TokenTemplate\bin\sc\TokenTemplate.nef"
           CopyToOutputDirectory="PreserveNewest"
           Link="artifacts\TokenTemplate.nef" />
     <None Include="..\..\src\TokenTemplate\bin\sc\TokenTemplate.manifest.json"
           CopyToOutputDirectory="PreserveNewest"
           Link="artifacts\TokenTemplate.manifest.json" />
+
+    <!-- SpikeDeploy contract artifacts (built by src/SpikeDeploy) -->
+    <None Include="..\..\src\SpikeDeploy\bin\sc\SpikeDeploy.nef"
+          CopyToOutputDirectory="PreserveNewest"
+          Link="artifacts\SpikeDeploy.nef" />
+    <None Include="..\..\src\SpikeDeploy\bin\sc\SpikeDeploy.manifest.json"
+          CopyToOutputDirectory="PreserveNewest"
+          Link="artifacts\SpikeDeploy.manifest.json" />
   </ItemGroup>
 
 </Project>

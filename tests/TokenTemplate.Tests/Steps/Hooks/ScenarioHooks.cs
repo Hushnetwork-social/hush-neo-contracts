@@ -43,5 +43,9 @@ public class ScenarioHooks
     {
         _context.Contract?.Dispose();
         _context.Contract = null;
+        _context.SpikeContract?.Dispose();
+        _context.SpikeContract = null;
+        _context.DeployedToken?.Dispose();
+        _context.DeployedToken = null;
     }
 }

@@ -46,6 +46,17 @@ public class TestContext
 
     /// <summary>Notifications captured from the last contract invocation.</summary>
     public List<Neo.VM.Types.Array> LastNotifications { get; } = new();
+
+    // ── Spike-specific state ──────────────────────────────────────────────────
+
+    /// <summary>The deployed SpikeDeploy contract proxy (spike scenarios only).</summary>
+    public SpikeDeployContract? SpikeContract { get; set; }
+
+    /// <summary>Hash of the token contract deployed by the spike factory call.</summary>
+    public UInt160 LastDeployedTokenHash { get; set; } = UInt160.Zero;
+
+    /// <summary>Proxy wrapping the factory-deployed TokenTemplate instance (spike scenarios).</summary>
+    public TokenTemplateContract? DeployedToken { get; set; }
 }
 
 /// <summary>
