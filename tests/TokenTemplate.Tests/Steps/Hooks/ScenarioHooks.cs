@@ -30,6 +30,8 @@ public class ScenarioHooks
         _context.Engine = new TestEngine(true);
         _context.OwnerSigner = TestEngine.GetNewSigner();
         _context.Engine.SetTransactionSigners(_context.OwnerSigner);
+        // Register walletA as the owner signer for multi-wallet scenarios
+        _context.NamedSigners["walletA"] = _context.OwnerSigner;
     }
 
     /// <summary>

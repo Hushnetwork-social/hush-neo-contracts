@@ -3,6 +3,7 @@ using Neo;
 using Neo.Network.P2P.Payloads;
 using Neo.SmartContract.Testing;
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 
 namespace TokenTemplate.Tests.Support;
@@ -36,6 +37,15 @@ public class TestContext
 
     /// <summary>The owner address used in the most recent Deploy() call.</summary>
     public UInt160 LastDeployedOwner { get; set; } = UInt160.Zero;
+
+    /// <summary>
+    /// Named wallet signers for multi-account scenarios.
+    /// "walletA" = owner signer (set by ScenarioHooks). "walletB", "walletC" created on demand.
+    /// </summary>
+    public Dictionary<string, Signer> NamedSigners { get; } = new();
+
+    /// <summary>Notifications captured from the last contract invocation.</summary>
+    public List<Neo.VM.Types.Array> LastNotifications { get; } = new();
 }
 
 /// <summary>
