@@ -1,6 +1,8 @@
 # Build output
 src/*/bin/
 src/*/obj/
+tests/*/bin/
+tests/*/obj/
 
 # Neo Express checkpoints (large binary files — regenerate locally)
 devnet/checkpoints/

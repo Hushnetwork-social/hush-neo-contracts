@@ -36,6 +36,24 @@
       }
     }
   ],
-  "wallets": [],
+  "wallets": [
+    {
+      "name": "deployer",
+      "accounts": [
+        {
+          "private-key": "caa4c8c45fb65c5a8324d1222f1f9faf2e139b19f705afb2ffcbbc26ea1369f9",
+          "script-hash": "NVPBT4gwfokzBXgqHTC68KWWop1M2AWgYY",
+          "label": null,
+          "is-default": true,
+          "contract": {
+            "script": "0c2103cad6c62ff9e53b04f9175ea87c363ad69767616ce9910266dd18167ef56c23564156e7b327",
+            "parameters": [
+              "Signature"
+            ]
+          }
+        }
+      ]
+    }
+  ],
   "settings": {}
 }
