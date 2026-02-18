@@ -253,9 +253,17 @@ namespace HushNetwork.Contracts
                 (BigInteger)0,  // [9] pausable = false
             };
 
-            // Deploy the TokenTemplate instance
+            // Deploy the TokenTemplate instance.
+            // Neo contract hash = Hash160(callerHash || nefChecksum || manifestName).
+            // Since callerHash (this factory) and the NEF are fixed, we must vary the manifest
+            // name per deployment to prevent "Contract Already Exists" collisions.
+            // We use the current global token count as a unique suffix: "TT0", "TT1", etc.
+            // The stored manifest starts with {"name":"TokenTemplate" (23 chars); we replace
+            // only the name field while preserving all ABI/groups/trust data unchanged.
             string manifest = StorageGetManifest();
-            Contract deployed = ContractManagement.Deploy(nef, manifest, tokenParams);
+            BigInteger count = StorageGetTotalTokenCount();
+            string uniqueManifest = "{\"name\":\"TT" + StdLib.Itoa(count, 10) + "\"" + manifest.Substring(23);
+            Contract deployed = ContractManagement.Deploy(nef, uniqueManifest, tokenParams);
             UInt160 contractHash = deployed.Hash;
 
             // Write registry: global list + per-creator index + token info record

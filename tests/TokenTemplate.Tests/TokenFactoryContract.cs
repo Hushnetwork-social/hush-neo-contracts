@@ -1,6 +1,7 @@
 #nullable enable
 using Neo;
 using Neo.SmartContract.Testing;
+using System;
 using System.ComponentModel;
 using System.Numerics;
 
