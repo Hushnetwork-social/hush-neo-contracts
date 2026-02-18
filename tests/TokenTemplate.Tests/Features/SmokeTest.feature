@@ -9,3 +9,8 @@ Feature: TokenTemplate — Smoke Test
     When the contract is deployed with symbol "TST" and decimals 8
     And symbol() is called on the deployed contract
     Then the returned string is "TST"
+
+  Scenario: Measure GAS cost of TokenTemplate deployment
+    Given the TokenTemplate test engine is initialized
+    When the contract is deployed with symbol "TST" and decimals 8
+    Then the GAS consumed by deployment is 1017433190 datoshi

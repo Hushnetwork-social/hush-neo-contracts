@@ -27,6 +27,12 @@ public class TestContext
 
     /// <summary>Exception thrown by the last contract method call (if any).</summary>
     public Exception? LastException { get; set; }
+
+    /// <summary>
+    /// GAS fee consumed by the last Deploy() call, in datoshi (1 GAS = 100_000_000 datoshi).
+    /// Populated by ContractSteps.DeployContract() via engine.CreateGasWatcher().
+    /// </summary>
+    public long GasConsumedByLastDeploy { get; set; }
 }
 
 /// <summary>

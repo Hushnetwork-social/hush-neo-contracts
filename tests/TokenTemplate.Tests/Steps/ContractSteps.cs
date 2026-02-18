@@ -125,6 +125,15 @@ public class ContractSteps
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
+    [Then(@"the GAS consumed by deployment is (\d+) datoshi")]
+    public void ThenGasConsumedByDeploymentIs(long expectedDatoshi)
+    {
+        Assert.That(_context.GasConsumedByLastDeploy, Is.EqualTo(expectedDatoshi),
+            $"Expected deploy to consume {expectedDatoshi} datoshi " +
+            $"but actually consumed {_context.GasConsumedByLastDeploy} datoshi " +
+            $"({_context.GasConsumedByLastDeploy / 100_000_000m} GAS).");
+    }
+
     private void DeployContract(DeployParams deployParams)
     {
         string nefPath      = Path.Combine(ArtifactsPath, "TokenTemplate.nef");
@@ -139,7 +148,10 @@ public class ContractSteps
         // Set transaction signer to the contract owner before deploying
         _context.Engine.SetTransactionSigners(_context.OwnerSigner);
 
+        // Measure GAS consumed by the deploy transaction (datoshi = GAS × 100_000_000)
+        using var watcher = _context.Engine.CreateGasWatcher();
         _context.Contract = _context.Engine.Deploy<TokenTemplateContract>(
             nef, manifest, deployParams.ToDeployArray());
+        _context.GasConsumedByLastDeploy = watcher.Value;
     }
 }
