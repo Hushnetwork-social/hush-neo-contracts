@@ -55,6 +55,9 @@ public class TestContext
     /// <summary>Hash of the last token deployed by the factory (factory scenarios).</summary>
     public UInt160 LastCreatedTokenHash { get; set; } = UInt160.Zero;
 
+    /// <summary>GAS consumed by the last TokenFactory Deploy() call, in datoshi.</summary>
+    public long GasConsumedByFactoryDeploy { get; set; }
+
     // ── Spike-specific state ──────────────────────────────────────────────────
 
     /// <summary>The deployed SpikeDeploy contract proxy (spike scenarios only).</summary>

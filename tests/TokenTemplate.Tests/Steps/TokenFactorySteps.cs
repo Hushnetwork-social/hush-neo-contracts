@@ -665,8 +665,16 @@ public class TokenFactorySteps
         var manifest = ContractManifest.Parse(File.ReadAllText(manifestPath));
 
         _context.Engine.SetTransactionSigners(_context.OwnerSigner);
-        _context.Factory = _context.Engine.Deploy<TokenFactoryContract>(nef, manifest, ownerAddress);
+        using var watcher = _context.Engine.CreateGasWatcher();
+        _context.Factory  = _context.Engine.Deploy<TokenFactoryContract>(nef, manifest, ownerAddress);
+        _context.GasConsumedByFactoryDeploy = watcher.Value;
     }
+
+    [Then(@"the factory deployment GAS is (\d+) datoshi")]
+    public void ThenFactoryDeploymentGasIs(long expectedDatoshi) =>
+        Assert.That(_context.GasConsumedByFactoryDeploy, Is.EqualTo(expectedDatoshi),
+            $"Actual factory deployment GAS was {_context.GasConsumedByFactoryDeploy} datoshi " +
+            $"({_context.GasConsumedByFactoryDeploy / 100_000_000.0:F8} GAS)");
 
     /// <summary>
     /// Loads TokenTemplate artifacts and calls SetNefAndManifest as the owner.
