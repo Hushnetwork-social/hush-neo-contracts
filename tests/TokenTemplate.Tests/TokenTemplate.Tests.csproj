@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- BDD Gherkin framework (SpecFlow successor, .NET 9/10 compatible) -->
+    <PackageReference Include="Reqnroll.NUnit" Version="3.3.3" />
+    <PackageReference Include="Reqnroll.Tools.MsBuild.Generation" Version="3.3.3" />
+
+    <!-- Neo in-process contract testing (official, same version as framework) -->
+    <PackageReference Include="Neo.SmartContract.Testing" Version="3.9.1" />
+
+    <!-- NUnit test runner -->
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Compiled contract artifact (built by src/TokenTemplate) -->
+    <None Include="..\..\src\TokenTemplate\bin\sc\TokenTemplate.nef"
+          CopyToOutputDirectory="PreserveNewest"
+          Link="artifacts\TokenTemplate.nef" />
+    <None Include="..\..\src\TokenTemplate\bin\sc\TokenTemplate.manifest.json"
+          CopyToOutputDirectory="PreserveNewest"
+          Link="artifacts\TokenTemplate.manifest.json" />
+  </ItemGroup>
+
+</Project>
