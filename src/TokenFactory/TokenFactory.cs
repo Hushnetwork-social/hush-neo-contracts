@@ -180,6 +180,103 @@ namespace HushNetwork.Contracts
             Storage.Put(key, hash);
         }
 
+        // ── Registry append helpers (Phase 3) ────────────────────────────────
+
+        private static void AppendGlobalToken(UInt160 contractHash)
+        {
+            BigInteger index = StorageGetTotalTokenCount();
+            StorageSetGlobalTokenAtIndex(index, contractHash);
+            StorageSetTotalTokenCount(index + 1);
+        }
+
+        private static void AppendCreatorToken(UInt160 creator, UInt160 contractHash)
+        {
+            BigInteger index = StorageGetCreatorTokenCount(creator);
+            StorageSetCreatorTokenAtIndex(creator, index, contractHash);
+            StorageSetCreatorTokenCount(creator, index + 1);
+        }
+
+        // ── TokenCreated event ────────────────────────────────────────────────
+        // args: contractHash, creator, symbol, supply, mode, tier
+
+        [DisplayName("TokenCreated")]
+        public static event Action<UInt160, UInt160, string, BigInteger, string, string> OnTokenCreated;
+
+        // ── onNEP17Payment — factory entry point ──────────────────────────────
+        // Triggered by GAS token transfer to this contract.
+        // Validates payment, deploys TokenTemplate, writes registry, emits event.
+        // On any guard failure, throw → NeoVM aborts the TX → GAS auto-refunded.
+
+        [DisplayName("onNEP17Payment")]
+        public static void OnNEP17Payment(UInt160 from, BigInteger amount, object data)
+        {
+            // Guard 1: Only GAS accepted
+            ExecutionEngine.Assert(Runtime.CallingScriptHash == GAS.Hash, "Only GAS accepted");
+
+            // Guard 2: Factory not paused
+            ExecutionEngine.Assert(!StorageGetPaused(), "Factory is paused");
+
+            // Guard 3: Factory initialized (NEF bytes stored)
+            ByteString nef = StorageGetNefBytes();
+            ExecutionEngine.Assert(nef is not null, "Factory not initialized");
+
+            // Guard 4: Sufficient fee
+            ExecutionEngine.Assert(amount >= StorageGetMinFee(), "Insufficient fee");
+
+            // Guard 5: Data format — expect object[]{name, symbol, supply, decimals, mode}
+            object[] tokenData = (object[])data;
+            ExecutionEngine.Assert(tokenData.Length == 5, "Expected 5 data elements");
+
+            // Guard 6: Mode check — only "community" supported in FEAT-070
+            string mode = (string)tokenData[4];
+            ExecutionEngine.Assert(mode == "community", "Unsupported mode");
+
+            // Extract token parameters from payment data
+            string name         = (string)tokenData[0];
+            string symbol       = (string)tokenData[1];
+            BigInteger supply   = (BigInteger)tokenData[2];
+            BigInteger decimals = (BigInteger)tokenData[3];
+
+            // Build 10-element deploy params for TokenTemplate._deploy()
+            // Bool params (mintable, upgradeable, pausable) MUST be BigInteger 0, NOT C# bool false
+            object[] tokenParams = new object[]
+            {
+                name,           // [0] name
+                symbol,         // [1] symbol
+                supply,         // [2] initialSupply
+                decimals,       // [3] decimals (TokenTemplate casts to byte)
+                from,           // [4] owner — payment sender becomes token owner
+                (BigInteger)0,  // [5] mintable = false
+                (BigInteger)0,  // [6] maxSupply = uncapped
+                (BigInteger)0,  // [7] upgradeable = false
+                "",             // [8] metadataUri = empty at creation
+                (BigInteger)0,  // [9] pausable = false
+            };
+
+            // Deploy the TokenTemplate instance
+            string manifest = StorageGetManifest();
+            Contract deployed = ContractManagement.Deploy(nef, manifest, tokenParams);
+            UInt160 contractHash = deployed.Hash;
+
+            // Write registry: global list + per-creator index + token info record
+            AppendGlobalToken(contractHash);
+            AppendCreatorToken(from, contractHash);
+
+            object[] tokenInfo = new object[]
+            {
+                symbol,                     // [0] symbol
+                from,                       // [1] creator
+                supply,                     // [2] supply
+                mode,                       // [3] mode ("community")
+                "standard",                 // [4] tier
+                (BigInteger)Runtime.Time,   // [5] createdAt (block timestamp)
+            };
+            StorageSetTokenInfo(contractHash, tokenInfo);
+
+            // Emit event
+            OnTokenCreated(contractHash, from, symbol, supply, mode, "standard");
+        }
+
         // ── Public owner management ───────────────────────────────────────────
         // Full public API (getTokenCount, getToken, etc.) implemented in Phase 4.
 
