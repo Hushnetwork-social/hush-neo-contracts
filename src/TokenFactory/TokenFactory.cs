@@ -303,6 +303,103 @@ namespace HushNetwork.Contracts
             OnSetOwner(previous, newOwner);
         }
 
+        // ── Registry query API (Phase 4) ─────────────────────────────────────
+
+        [Safe]
+        public static BigInteger GetTokenCount() =>
+            StorageGetTotalTokenCount();
+
+        [Safe]
+        public static object[] GetToken(UInt160 hash) =>
+            StorageGetTokenInfo(hash);
+
+        /// <summary>
+        /// Returns a page of token hashes created by the given address.
+        /// page is 0-indexed; pageSize is the max items per page.
+        /// Returns empty array if creator has no tokens or page is out of range.
+        /// </summary>
+        [Safe]
+        public static UInt160[] GetTokensByCreator(UInt160 creator, BigInteger page, BigInteger pageSize)
+        {
+            BigInteger count = StorageGetCreatorTokenCount(creator);
+            BigInteger startIndex = page * pageSize;
+            if (startIndex >= count)
+                return new UInt160[0];
+            BigInteger end = startIndex + pageSize;
+            if (end > count) end = count;
+            int len = (int)(end - startIndex);
+            UInt160[] result = new UInt160[len];
+            for (int i = 0; i < len; i++)
+                result[i] = StorageGetCreatorTokenAtIndex(creator, startIndex + i);
+            return result;
+        }
+
+        [Safe]
+        public static bool IsInitialized() =>
+            StorageGetNefBytes() is not null;
+
+        [Safe]
+        public static bool IsPaused() =>
+            StorageGetPaused();
+
+        [Safe]
+        public static BigInteger GetMinFee() =>
+            StorageGetMinFee();
+
+        [Safe]
+        public static UInt160 GetTreasury() =>
+            StorageGetTreasury();
+
+        [Safe]
+        public static bool GetPremiumTiersEnabled() =>
+            StorageGetPremiumTiersEnabled();
+
+        // ── Admin functions (Phase 4) ─────────────────────────────────────────
+        // All admin methods begin with: Assert(Runtime.CheckWitness(GetOwner()), "Unauthorized")
+        // Note: SetOwner() is implemented in Phase 2 (public owner management above).
+
+        public static void SetNefAndManifest(ByteString nef, string manifest)
+        {
+            ExecutionEngine.Assert(Runtime.CheckWitness(GetOwner()), "Unauthorized");
+            ExecutionEngine.Assert(nef is not null, "NEF must not be empty");
+            ExecutionEngine.Assert(nef.Length > 0, "NEF must not be empty");
+            ExecutionEngine.Assert(manifest != null && manifest.Length > 0, "Manifest must not be empty");
+            StorageSetNefBytes(nef);
+            StorageSetManifest(manifest);
+        }
+
+        public static void SetFee(BigInteger standardFeeDataoshi)
+        {
+            ExecutionEngine.Assert(Runtime.CheckWitness(GetOwner()), "Unauthorized");
+            ExecutionEngine.Assert(standardFeeDataoshi > 0, "Fee must be positive");
+            StorageSetMinFee(standardFeeDataoshi);
+        }
+
+        public static void SetTreasuryAddress(UInt160 address)
+        {
+            ExecutionEngine.Assert(Runtime.CheckWitness(GetOwner()), "Unauthorized");
+            ExecutionEngine.Assert(address.IsValid && !address.IsZero, "Address must be valid");
+            StorageSetTreasury(address);
+        }
+
+        public static void SetPremiumTiersEnabled(bool enabled)
+        {
+            ExecutionEngine.Assert(Runtime.CheckWitness(GetOwner()), "Unauthorized");
+            StorageSetPremiumTiersEnabled(enabled);
+        }
+
+        public static void Pause()
+        {
+            ExecutionEngine.Assert(Runtime.CheckWitness(GetOwner()), "Unauthorized");
+            StorageSetPaused(true);
+        }
+
+        public static void Unpause()
+        {
+            ExecutionEngine.Assert(Runtime.CheckWitness(GetOwner()), "Unauthorized");
+            StorageSetPaused(false);
+        }
+
         // ── Deploy ────────────────────────────────────────────────────────────
 
         public static void _deploy(object data, bool update)
