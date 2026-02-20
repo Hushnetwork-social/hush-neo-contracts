@@ -126,7 +126,7 @@ namespace HushNetwork.Contracts
         }
 
         // ── TokenInfo storage helpers ─────────────────────────────────────────
-        // TokenInfo format: object[] { symbol, creator, supply, mode, tier, createdAt }
+        // TokenInfo format: object[] { symbol, creator, supply, mode, tier, createdAt, imageUrl }
         // Key: [0x10] + contractHash (20 bytes)
 
         private static object[] StorageGetTokenInfo(UInt160 contractHash)
@@ -223,13 +223,15 @@ namespace HushNetwork.Contracts
             // Guard 4: Sufficient fee
             ExecutionEngine.Assert(amount >= StorageGetMinFee(), "Insufficient fee");
 
-            // Guard 5: Data format — expect object[]{name, symbol, supply, decimals, mode}
+            // Guard 5: Data format — expect object[]{name, symbol, supply, decimals, mode, imageUrl}
             object[] tokenData = (object[])data;
-            ExecutionEngine.Assert(tokenData.Length == 5, "Expected 5 data elements");
+            ExecutionEngine.Assert(tokenData.Length == 6, "Expected 6 data elements");
 
             // Guard 6: Mode check — only "community" supported in FEAT-070
             string mode = (string)tokenData[4];
             ExecutionEngine.Assert(mode == "community", "Unsupported mode");
+
+            string imageUrl = (string)tokenData[5];
 
             // Extract token parameters from payment data
             string name         = (string)tokenData[0];
@@ -249,7 +251,7 @@ namespace HushNetwork.Contracts
                 (BigInteger)0,  // [5] mintable = false
                 (BigInteger)0,  // [6] maxSupply = uncapped
                 (BigInteger)0,  // [7] upgradeable = false
-                "",             // [8] metadataUri = empty at creation
+                imageUrl,       // [8] metadataUri — user-supplied image/icon URL
                 (BigInteger)0,  // [9] pausable = false
             };
 
@@ -278,6 +280,7 @@ namespace HushNetwork.Contracts
                 mode,                       // [3] mode ("community")
                 "standard",                 // [4] tier
                 (BigInteger)Runtime.Time,   // [5] createdAt (block timestamp)
+                imageUrl,                   // [6] imageUrl
             };
             StorageSetTokenInfo(contractHash, tokenInfo);
 

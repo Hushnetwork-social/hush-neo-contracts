@@ -34,9 +34,9 @@ public class TokenFactorySteps
     private static readonly string ArtifactsPath =
         Path.Combine(AppContext.BaseDirectory, "artifacts");
 
-    // Default valid token params for shortcut steps
+    // Default valid token params for shortcut steps (6 elements: name, symbol, supply, decimals, mode, imageUrl)
     private static readonly object[] ValidTokenData =
-        new object[] { "ValidToken", "VLD", (BigInteger)1000, (BigInteger)8, "community" };
+        new object[] { "ValidToken", "VLD", (BigInteger)1000, (BigInteger)8, "community", "" };
 
     private readonly TestContext _context;
 
@@ -127,7 +127,7 @@ public class TokenFactorySteps
         {
             var tokenData = new object[]
             {
-                $"Token{i}", $"TK{i}", (BigInteger)(1000 + i), (BigInteger)8, "community"
+                $"Token{i}", $"TK{i}", (BigInteger)(1000 + i), (BigInteger)8, "community", ""
             };
             SimulateGasPayment(wallet, 1_500_000_000, tokenData);
             Assert.That(_context.LastException, Is.Null,
@@ -150,21 +150,40 @@ public class TokenFactorySteps
     // ── Phase 6: GAS payment simulation steps (When) ─────────────────────────
 
     /// <summary>
-    /// Simulates a GAS payment to the factory by overriding CallingScriptHash = GAS.Hash
-    /// for the duration of the OnNEP17Payment call. The 5-element token data array is
-    /// provided as individual quoted parameters in the step text.
+    /// Simulates a GAS payment with the 5-param form (no imageUrl).
+    /// imageUrl defaults to "" — all existing feature file scenarios use this form.
     ///
     /// Step text example:
     ///   When walletA transfers 1500000000 GAS to the factory with token params "MyToken" "MTK" 1000000 8 "community"
     /// </summary>
-    [When(@"(\w+) transfers (\d+) GAS to the factory with token params ""(.*)"" ""(.*)"" (\d+) (\d+) ""(.*)""")]
+    // Note: mode uses (\w+) instead of (.*) — (\w+) stops at non-word chars (quotes, slashes),
+    // preventing ambiguity with the 6-param form that appends an imageUrl quoted string.
+    [When(@"(\w+) transfers (\d+) GAS to the factory with token params ""(.*)"" ""(.*)"" (\d+) (\d+) ""(\w+)""")]
     public void WalletTransfersGasWithTokenParams(
         string wallet, long amount, string name, string symbol,
         long supply, long decimals, string mode)
     {
         var tokenData = new object[]
         {
-            name, symbol, (BigInteger)supply, (BigInteger)decimals, mode
+            name, symbol, (BigInteger)supply, (BigInteger)decimals, mode, ""
+        };
+        SimulateGasPayment(wallet, (BigInteger)amount, tokenData);
+    }
+
+    /// <summary>
+    /// Simulates a GAS payment with all 6 token params including imageUrl.
+    ///
+    /// Step text example:
+    ///   When walletA transfers 1500000000 GAS to the factory with token params "MyToken" "MTK" 1000000 8 "community" "https://example.com/icon.png"
+    /// </summary>
+    [When(@"(\w+) transfers (\d+) GAS to the factory with token params ""(.*)"" ""(.*)"" (\d+) (\d+) ""(.*)"" ""(.*)""")]
+    public void WalletTransfersGasWithTokenParamsAndImageUrl(
+        string wallet, long amount, string name, string symbol,
+        long supply, long decimals, string mode, string imageUrl)
+    {
+        var tokenData = new object[]
+        {
+            name, symbol, (BigInteger)supply, (BigInteger)decimals, mode, imageUrl
         };
         SimulateGasPayment(wallet, (BigInteger)amount, tokenData);
     }
@@ -480,6 +499,17 @@ public class TokenFactorySteps
         Assert.That(ParseString(info[3]),  Is.EqualTo(mode),    "mode mismatch");
         Assert.That(ParseString(info[4]),  Is.EqualTo(tier),    "tier mismatch");
         Assert.That(ParseBigInteger(info[2]), Is.EqualTo((BigInteger)supply), "supply mismatch");
+    }
+
+    [Then(@"the registry token imageUrl is ""(.*)""")]
+    public void TheRegistryTokenImageUrlIs(string expected)
+    {
+        Assert.That(_context.LastCreatedTokenHash, Is.Not.EqualTo(UInt160.Zero), "No token created");
+        var info = _context.Factory!.GetToken(_context.LastCreatedTokenHash);
+        Assert.That(info, Is.Not.Null, "GetToken returned null");
+        // tokenInfo[6] = imageUrl
+        var actual = info!.Length > 6 ? ParseString(info[6]) : "";
+        Assert.That(actual, Is.EqualTo(expected), "imageUrl mismatch");
     }
 
     [Then(@"the registry token creator equals (\w+)'s address")]
