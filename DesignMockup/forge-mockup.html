@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forge — Token Infrastructure for Communities</title>
+    <style>
+        /* EMBER FORGE COLOR PALETTE */
+        :root {
+            --bg-primary: #1A1A1A;          /* Charcoal black */
+            --color-primary: #FF6B35;        /* Burnt orange */
+            --color-secondary: #D84315;      /* Deep ember */
+            --color-accent: #FFA726;         /* Amber glow */
+            --color-text: #F5F5F5;          /* Off-white */
+            --color-highlight: #FFAB91;      /* Soft coral */
+            --bg-card: #242424;             /* Slightly lighter black for cards */
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, #2A1810 100%);
+            color: var(--color-text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* HEADER */
+        header {
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(26, 26, 26, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 107, 53, 0.1);
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--color-primary);
+            text-shadow: 0 0 20px rgba(255, 107, 53, 0.5);
+            letter-spacing: -0.5px;
+        }
+
+        nav {
+            display: flex;
+            gap: 2rem;
+        }
+
+        nav a {
+            color: var(--color-text);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        nav a:hover {
+            color: var(--color-accent);
+        }
+
+        .badge {
+            background: var(--color-secondary);
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+            box-shadow: 0 0 15px rgba(216, 67, 21, 0.4);
+        }
+
+        /* HERO SECTION */
+        .hero {
+            padding: 6rem 2rem;
+            text-align: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .hero h1 {
+            font-size: 4.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1.5rem;
+            text-shadow: 0 0 40px rgba(255, 107, 53, 0.3);
+            letter-spacing: -2px;
+        }
+
+        .tagline {
+            font-size: 1.8rem;
+            color: var(--color-highlight);
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .description {
+            font-size: 1.2rem;
+            color: rgba(245, 245, 245, 0.8);
+            max-width: 800px;
+            margin: 0 auto 3rem;
+            line-height: 1.8;
+        }
+
+        /* BUTTONS */
+        .cta-group {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-primary) 100%);
+            color: white;
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1.1rem;
+            box-shadow: 0 10px 30px rgba(255, 107, 53, 0.4);
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(255, 167, 38, 0.6);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--color-primary);
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1.1rem;
+            border: 2px solid var(--color-primary);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 107, 53, 0.1);
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+        }
+
+        /* FEATURES SECTION */
+        .features {
+            padding: 4rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 107, 53, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--color-primary);
+            box-shadow: 0 10px 30px rgba(255, 107, 53, 0.2);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h3 {
+            color: var(--color-accent);
+            margin-bottom: 0.8rem;
+            font-size: 1.4rem;
+        }
+
+        .feature-card p {
+            color: rgba(245, 245, 245, 0.7);
+            line-height: 1.6;
+        }
+
+        /* STATS SECTION */
+        .stats {
+            padding: 3rem 2rem;
+            text-align: center;
+            background: linear-gradient(135deg, rgba(216, 67, 21, 0.1) 0%, rgba(255, 107, 53, 0.05) 100%);
+            border-top: 1px solid rgba(255, 107, 53, 0.2);
+            border-bottom: 1px solid rgba(255, 107, 53, 0.2);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            max-width: 1000px;
+            margin: 2rem auto 0;
+        }
+
+        .stat-item h4 {
+            font-size: 2.5rem;
+            color: var(--color-primary);
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-item p {
+            color: rgba(245, 245, 245, 0.7);
+            font-size: 1.1rem;
+        }
+
+        /* FOOTER */
+        footer {
+            padding: 2rem;
+            text-align: center;
+            border-top: 1px solid rgba(255, 107, 53, 0.1);
+            margin-top: 4rem;
+        }
+
+        footer p {
+            color: rgba(245, 245, 245, 0.5);
+        }
+
+        footer a {
+            color: var(--color-primary);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            color: var(--color-accent);
+        }
+
+        /* GLOW EFFECTS */
+        .glow {
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from {
+                text-shadow: 0 0 10px rgba(255, 107, 53, 0.5),
+                             0 0 20px rgba(255, 107, 53, 0.3),
+                             0 0 30px rgba(255, 107, 53, 0.2);
+            }
+            to {
+                text-shadow: 0 0 20px rgba(255, 167, 38, 0.8),
+                             0 0 30px rgba(255, 167, 38, 0.5),
+                             0 0 40px rgba(255, 167, 38, 0.3);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <header>
+        <div class="logo glow">🔥 Forge</div>
+        <nav>
+            <a href="#features">Features</a>
+            <a href="#docs">Documentation</a>
+            <a href="#github">GitHub</a>
+            <span class="badge">Built on NEO</span>
+        </nav>
+    </header>
+
+    <!-- HERO -->
+    <section class="hero">
+        <h1>Forge</h1>
+        <div class="tagline">Token infrastructure for communities</div>
+        <p class="description">
+            Launch meme coins, community tokens, or social assets with NEP-17 standard. 
+            Fair-launch ready, DEX-integrated, crowdfunding-enabled. 
+            We eat our own dog-food — the HUSH token is forged here.
+        </p>
+        <div class="cta-group">
+            <a href="#" class="btn-primary">Launch Your Token</a>
+            <a href="#" class="btn-secondary">Read Documentation</a>
+        </div>
+    </section>
+
+    <!-- STATS -->
+    <section class="stats">
+        <h2 style="font-size: 2rem; color: var(--color-accent); margin-bottom: 2rem;">Built on NEO, owned by HushNetwork</h2>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <h4>3sec</h4>
+                <p>Block Time</p>
+            </div>
+            <div class="stat-item">
+                <h4>NEP-17</h4>
+                <p>Token Standard</p>
+            </div>
+            <div class="stat-item">
+                <h4>Fair</h4>
+                <p>Launch Ready</p>
+            </div>
+            <div class="stat-item">
+                <h4>Flamingo</h4>
+                <p>DEX Integration</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section class="features" id="features">
+        <h2 style="font-size: 2.5rem; text-align: center; color: var(--color-accent); margin-bottom: 1rem;">Why Forge?</h2>
+        <p style="text-align: center; color: rgba(245, 245, 245, 0.7); max-width: 600px; margin: 0 auto 2rem;">
+            Infrastructure for tokenized communities to launch + monetize on NEO
+        </p>
+        
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🪙</div>
+                <h3>Meme Tokens</h3>
+                <p>Community-driven speculation with fair-launch mechanisms. No VC dumps, no insider allocations.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">👥</div>
+                <h3>Community Tokens</h3>
+                <p>Governance and membership tokens for DAOs, communities, and social groups.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🎨</div>
+                <h3>Social Assets</h3>
+                <p>Creator tokens, fan tokens, and social capital monetization infrastructure.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">💰</div>
+                <h3>Crowdfunding</h3>
+                <p>Pre-Sale, Private Sale, and Public Sale support. Project financing via token sales.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3>DEX Ready</h3>
+                <p>Instant Flamingo DEX integration. Create liquidity pools in seconds.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">✅</div>
+                <h3>Wallet Compatible</h3>
+                <p>Works with NeoLine, O3, and all NEO N3 wallets. Standard NEP-17 tokens.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+        <p>
+            <strong style="color: var(--color-primary);">Forge</strong> — A product of 
+            <a href="https://hushnetwork.social" target="_blank">HushNetwork</a>
+        </p>
+        <p style="margin-top: 0.5rem; font-size: 0.9rem;">
+            Built on <a href="https://neo.org" target="_blank">NEO N3</a> blockchain | 
+            <a href="https://github.com/hushnetwork-social/hush-neo-contracts" target="_blank">GitHub</a> | 
+            Apache 2.0 License
+        </p>
+    </footer>
+</body>
+</html>
