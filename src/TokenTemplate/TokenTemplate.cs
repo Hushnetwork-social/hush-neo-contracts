@@ -187,13 +187,13 @@ namespace Neo.SmartContract.Template
             OnOwnerChanged(previous, newOwner);
         }
 
-        // Owner can permanently renounce upgrade rights. Cannot be undone.
-        // Also blocks setPausable() but NOT pause()/unpause() (runtime vs property).
+        // Irrevocably locks the token — no lifecycle changes after this. FEAT-078.
+        // Guard: !locked first (cheapest), then CallingScriptHash == authorizedFactory.
         [DisplayName("lock")]
         public static void Lock()
         {
-            ExecutionEngine.Assert(IsOwner(), "No authorization");
             ExecutionEngine.Assert(!StorageGetLocked(), "Already locked");
+            ExecutionEngine.Assert(Runtime.CallingScriptHash == StorageGetAuthorizedFactory(), "No authorization");
             StorageSetLocked(true);
             OnLocked(Runtime.Time);
         }
@@ -236,28 +236,128 @@ namespace Neo.SmartContract.Template
         [Safe]
         public static BigInteger getBurnRate() => StorageGetBurnRate();
 
+        // ── Factory lifecycle setters (FEAT-078) ──────────────────────────────
+        // Guard pattern for all setters below:
+        //   1. Assert !StorageGetLocked()                                    — cheapest check first
+        //   2. Assert Runtime.CallingScriptHash == StorageGetAuthorizedFactory() — only factory
+
+        public delegate void OnBurnRateSetDelegate(UInt160 caller, BigInteger newRate, ulong timestamp);
+
+        [DisplayName("BurnRateSet")]
+        public static event OnBurnRateSetDelegate OnBurnRateSet;
+
+        public delegate void OnMetadataUriSetDelegate(UInt160 caller, string uri, ulong timestamp);
+
+        [DisplayName("MetadataUriSet")]
+        public static event OnMetadataUriSetDelegate OnMetadataUriSet;
+
+        public delegate void OnMaxSupplySetDelegate(UInt160 caller, BigInteger newMax, ulong timestamp);
+
+        [DisplayName("MaxSupplySet")]
+        public static event OnMaxSupplySetDelegate OnMaxSupplySet;
+
+        public delegate void OnCreatorFeeRateSetDelegate(UInt160 caller, BigInteger newRate, ulong timestamp);
+
+        [DisplayName("CreatorFeeRateSet")]
+        public static event OnCreatorFeeRateSetDelegate OnCreatorFeeRateSet;
+
+        public delegate void OnPlatformFeeRateSetDelegate(UInt160 caller, BigInteger newRate, ulong timestamp);
+
+        [DisplayName("PlatformFeeRateSet")]
+        public static event OnPlatformFeeRateSetDelegate OnPlatformFeeRateSet;
+
+        public delegate void OnFactoryAuthorizedDelegate(UInt160 previousFactory, UInt160 newFactory);
+
+        [DisplayName("FactoryAuthorized")]
+        public static event OnFactoryAuthorizedDelegate OnFactoryAuthorized;
+
+        // Sets the per-transfer token burn rate in basis points. 100 = 1%, 1000 = 10% (max).
+        public static void SetBurnRate(BigInteger bps)
+        {
+            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            ExecutionEngine.Assert(Runtime.CallingScriptHash == StorageGetAuthorizedFactory(), "No authorization");
+            ExecutionEngine.Assert(bps >= 0 && bps <= 1000, "BurnRate must be 0–1000 basis points");
+            StorageSetBurnRate(bps);
+            OnBurnRateSet(Runtime.CallingScriptHash, bps, Runtime.Time);
+        }
+
+        // Updates the IPFS/HTTP metadata URI. Empty string clears the URI.
+        public static void SetMetadataUri(string uri)
+        {
+            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            ExecutionEngine.Assert(Runtime.CallingScriptHash == StorageGetAuthorizedFactory(), "No authorization");
+            ExecutionEngine.Assert(uri != null, "URI must not be null");
+            StorageSetMetadataUri(uri);
+            OnMetadataUriSet(Runtime.CallingScriptHash, uri, Runtime.Time);
+        }
+
+        // Updates the maximum supply cap. 0 = uncapped. Cannot be set below current totalSupply.
+        public static void SetMaxSupply(BigInteger newMax)
+        {
+            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            ExecutionEngine.Assert(Runtime.CallingScriptHash == StorageGetAuthorizedFactory(), "No authorization");
+            if (newMax > 0)
+            {
+                BigInteger currentSupply = (BigInteger)Storage.Get(new[] { (byte)0x00 });
+                ExecutionEngine.Assert(newMax >= currentSupply, "NewMaxSupply cannot be less than current totalSupply");
+            }
+            StorageSetMaxSupply(newMax);
+            OnMaxSupplySet(Runtime.CallingScriptHash, newMax, Runtime.Time);
+        }
+
+        // Sets the per-transfer creator GAS fee in datoshi (1 GAS = 100,000,000 datoshi).
+        public static void SetCreatorFee(BigInteger datoshi)
+        {
+            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            ExecutionEngine.Assert(Runtime.CallingScriptHash == StorageGetAuthorizedFactory(), "No authorization");
+            ExecutionEngine.Assert(datoshi >= 0 && datoshi <= 5_000_000, "CreatorFee must be 0–5,000,000 datoshi");
+            StorageSetCreatorFeeRate(datoshi);
+            OnCreatorFeeRateSet(Runtime.CallingScriptHash, datoshi, Runtime.Time);
+        }
+
+        // Sets the per-transfer platform GAS fee in datoshi.
+        public static void SetPlatformFeeRate(BigInteger datoshi)
+        {
+            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            ExecutionEngine.Assert(Runtime.CallingScriptHash == StorageGetAuthorizedFactory(), "No authorization");
+            ExecutionEngine.Assert(datoshi >= 0, "PlatformFeeRate must be >= 0");
+            StorageSetPlatformFeeRate(datoshi);
+            OnPlatformFeeRateSet(Runtime.CallingScriptHash, datoshi, Runtime.Time);
+        }
+
+        // Transfers factory authority to a new factory. Irrevocable for the old factory.
+        public static void AuthorizeFactory(UInt160 newFactory)
+        {
+            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            ExecutionEngine.Assert(Runtime.CallingScriptHash == StorageGetAuthorizedFactory(), "No authorization");
+            ExecutionEngine.Assert(newFactory.IsValid && !newFactory.IsZero, "Invalid factory address");
+            UInt160 previousFactory = StorageGetAuthorizedFactory();
+            StorageSetAuthorizedFactory(newFactory);
+            OnFactoryAuthorized(previousFactory, newFactory);
+        }
+
         // ── Pausable controls ─────────────────────────────────────────────────
-        // setPausable is a property-level change — requires upgradeable=true AND !locked.
-        // pause/unpause are runtime controls — allowed while locked if pausable=true.
+        // setPausable is a property-level change — requires !locked AND factory authorization.
+        // pause/unpause are runtime controls — factory authorization required; locked does not block.
 
         public static void setPausable(bool value)
         {
-            ExecutionEngine.Assert(IsOwner(), "No authorization");
-            ExecutionEngine.Assert(StorageGetUpgradeable(), "Contract is not upgradeable");
             ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            ExecutionEngine.Assert(Runtime.CallingScriptHash == StorageGetAuthorizedFactory(), "No authorization");
+            ExecutionEngine.Assert(StorageGetUpgradeable(), "Contract is not upgradeable");
             StorageSetPausable(value);
         }
 
         public static void pause()
         {
-            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(Runtime.CallingScriptHash == StorageGetAuthorizedFactory(), "No authorization");
             ExecutionEngine.Assert(StorageGetPausable(), "Token is not pausable");
             StorageSetPaused(true);
         }
 
         public static void unpause()
         {
-            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(Runtime.CallingScriptHash == StorageGetAuthorizedFactory(), "No authorization");
             ExecutionEngine.Assert(StorageGetPausable(), "Token is not pausable");
             StorageSetPaused(false);
         }
@@ -268,26 +368,74 @@ namespace Neo.SmartContract.Template
 
         public override byte Decimals { [Safe] get => StorageGetDecimals(); }
 
-        // Blocks all token transfers while the contract is paused.
-        // Transfer is static in Nep17Token — shadow with `new` and delegate to base class.
+        // Transfer applies the three-component fee system (FEAT-078):
+        //   1. Platform GAS fee → authorizedFactory  (if platformFeeRate > 0 and CheckWitness(from))
+        //   2. Creator GAS fee  → owner              (if creatorFeeRate > 0 and CheckWitness(from))
+        //   3. Token burn       → address(0)          (if burnRate > 0 and normal non-mint transfer)
+        //
+        // Exemptions:
+        //   from == address(0) — factory mint: all fees skipped
+        //   to   == address(0) — user burn:    GAS fees apply; token burn skipped (already destroying)
+        //
+        // GAS fees are collected BEFORE the token transfer to ensure atomic revert on failure.
         public static new bool Transfer(UInt160 from, UInt160 to, BigInteger amount, object data = null)
         {
             ExecutionEngine.Assert(!StorageGetPaused(), "Token transfers are paused");
+
+            // Mint calls (from == address(0)) are fully exempt from fees.
+            if (from != UInt160.Zero)
+            {
+                // GAS fees: collected only when the sender signed the transaction directly.
+                if (Runtime.CheckWitness(from))
+                {
+                    BigInteger platformFee = StorageGetPlatformFeeRate();
+                    if (platformFee > 0)
+                        GAS.Transfer(from, StorageGetAuthorizedFactory(), platformFee, null);
+
+                    BigInteger creatorFee = StorageGetCreatorFeeRate();
+                    if (creatorFee > 0)
+                    {
+                        UInt160 owner = StorageGetOwner();
+                        if (owner != UInt160.Zero)
+                            GAS.Transfer(from, owner, creatorFee, null);
+                    }
+                }
+
+                // Token burn: skip when to == address(0) (caller is already destroying tokens).
+                if (to != UInt160.Zero)
+                {
+                    BigInteger burnRate = StorageGetBurnRate();
+                    if (burnRate > 0)
+                    {
+                        BigInteger burnAmount = amount * burnRate / 10000;
+                        if (burnAmount > 0)
+                        {
+                            ExecutionEngine.Assert(amount > burnAmount, "Burn amount exceeds transfer amount");
+                            // Call base Transfer directly to avoid re-entering fee logic.
+                            // from != 0, to == 0 → this inner call skips token burn (no recursion).
+                            Nep17Token.Transfer(from, UInt160.Zero, burnAmount, null);
+                            amount -= burnAmount;
+                        }
+                    }
+                }
+            }
+
             return Nep17Token.Transfer(from, to, amount, data);
         }
 
         // Any token holder can burn their own tokens.
-        // The caller is always identified via the transaction Sender.
+        // Routes through Transfer() so GAS fees are collected; token burn rate is NOT applied (to == 0).
         public static void burn(BigInteger amount)
         {
             ExecutionEngine.Assert(amount > 0, "Amount must be positive");
 
             UInt160 caller = Runtime.Transaction.Sender;
             ExecutionEngine.Assert(Runtime.CheckWitness(caller), "No Authorization");
-            Nep17Token.Burn(caller, amount);
+            Transfer(caller, UInt160.Zero, amount, null);
         }
 
-        // Owner-only. Requires mintable=true and maxSupply cap enforcement.
+        // Owner-only direct mint. Retained as creator fallback; does not collect fees.
+        // Factory-mediated minting uses MintByFactory() instead.
         public static void mint(UInt160 to, BigInteger amount)
         {
             if (!IsOwner())
@@ -300,7 +448,27 @@ namespace Neo.SmartContract.Template
             BigInteger maxSupply = StorageGetMaxSupply();
             if (maxSupply > 0)
             {
-                // Read TotalSupply directly from base class storage (Prefix_TotalSupply = 0x00)
+                BigInteger currentSupply = (BigInteger)Storage.Get(new[] { (byte)0x00 });
+                ExecutionEngine.Assert(currentSupply + amount <= maxSupply, "MaxSupply exceeded");
+            }
+
+            Nep17Token.Mint(to, amount);
+        }
+
+        // Factory-mediated mint. Only callable by the authorized factory contract.
+        // Uses Nep17Token.Mint directly — the resulting Transfer(address(0), to, amount) event
+        // triggers the from==0 exemption in Transfer(), so no fees are collected.
+        public static void MintByFactory(UInt160 to, BigInteger amount)
+        {
+            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            ExecutionEngine.Assert(Runtime.CallingScriptHash == StorageGetAuthorizedFactory(), "No authorization");
+            ExecutionEngine.Assert(StorageGetMintable(), "Token is not mintable");
+            ExecutionEngine.Assert(amount > 0, "Amount must be positive");
+            ExecutionEngine.Assert(to.IsValid && !to.IsZero, "Invalid recipient");
+
+            BigInteger maxSupply = StorageGetMaxSupply();
+            if (maxSupply > 0)
+            {
                 BigInteger currentSupply = (BigInteger)Storage.Get(new[] { (byte)0x00 });
                 ExecutionEngine.Assert(currentSupply + amount <= maxSupply, "MaxSupply exceeded");
             }
