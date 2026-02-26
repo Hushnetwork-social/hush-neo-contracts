@@ -536,7 +536,7 @@ namespace HushNetwork.Contracts
             ExecutionEngine.Assert(amount > 0, "Amount must be positive");
             ExecutionEngine.Assert(to.IsValid && !to.IsZero, "Invalid recipient");
             GAS.Transfer(creator, Runtime.ExecutingScriptHash, StorageGetUpdateFee(), null);
-            Contract.Call(tokenHash, "MintByFactory", CallFlags.All, new object[] { to, amount });
+            Contract.Call(tokenHash, "mintByFactory", CallFlags.All, new object[] { to, amount });
             tokenInfo[2] = (BigInteger)tokenInfo[2] + amount;
             StorageSetTokenInfo(tokenHash, tokenInfo);
             OnTokenMinted(tokenHash, to, amount, (BigInteger)Runtime.Time);
@@ -553,7 +553,7 @@ namespace HushNetwork.Contracts
             ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
             ExecutionEngine.Assert(bps >= 0 && bps <= 1000, "Burn rate out of range");
             GAS.Transfer(creator, Runtime.ExecutingScriptHash, StorageGetUpdateFee(), null);
-            Contract.Call(tokenHash, "SetBurnRate", CallFlags.All, new object[] { bps });
+            Contract.Call(tokenHash, "setBurnRate", CallFlags.All, new object[] { bps });
             tokenInfo[7] = bps;
             StorageSetTokenInfo(tokenHash, tokenInfo);
             OnTokenBurnRateSet(tokenHash, bps);
@@ -567,7 +567,7 @@ namespace HushNetwork.Contracts
             ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
             ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
             GAS.Transfer(creator, Runtime.ExecutingScriptHash, StorageGetUpdateFee(), null);
-            Contract.Call(tokenHash, "SetMaxSupply", CallFlags.All, new object[] { newMax });
+            Contract.Call(tokenHash, "setMaxSupply", CallFlags.All, new object[] { newMax });
             tokenInfo[8] = newMax;
             StorageSetTokenInfo(tokenHash, tokenInfo);
             OnTokenMaxSupplySet(tokenHash, newMax);
@@ -582,7 +582,7 @@ namespace HushNetwork.Contracts
             ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
             ExecutionEngine.Assert(imageUrl != null && imageUrl.Length > 0, "imageUrl must not be empty");
             GAS.Transfer(creator, Runtime.ExecutingScriptHash, StorageGetUpdateFee(), null);
-            Contract.Call(tokenHash, "SetMetadataUri", CallFlags.All, new object[] { imageUrl });
+            Contract.Call(tokenHash, "setMetadataUri", CallFlags.All, new object[] { imageUrl });
             tokenInfo[6] = imageUrl;
             StorageSetTokenInfo(tokenHash, tokenInfo);
             OnTokenMetadataUpdated(tokenHash, imageUrl);
@@ -599,7 +599,7 @@ namespace HushNetwork.Contracts
             ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
             ExecutionEngine.Assert(newRate >= 0 && newRate <= 5_000_000, "Creator fee out of range");
             GAS.Transfer(creator, Runtime.ExecutingScriptHash, StorageGetUpdateFee(), null);
-            Contract.Call(tokenHash, "SetCreatorFee", CallFlags.All, new object[] { newRate });
+            Contract.Call(tokenHash, "setCreatorFee", CallFlags.All, new object[] { newRate });
             // creatorFeeRate is NOT tracked in tokenInfo (lives on the token); event is sufficient for indexer
             OnTokenCreatorFeeSet(tokenHash, newRate);
         }
@@ -674,7 +674,7 @@ namespace HushNetwork.Contracts
                 UInt160 tokenHash = StorageGetGlobalTokenAtIndex(idx);
                 if (tokenHash is not null)
                 {
-                    Contract.Call(tokenHash, "AuthorizeFactory", CallFlags.All, new object[] { newFactoryHash });
+                    Contract.Call(tokenHash, "authorizeFactory", CallFlags.All, new object[] { newFactoryHash });
                     count++;
                 }
             }
@@ -696,7 +696,7 @@ namespace HushNetwork.Contracts
                 UInt160 tokenHash = StorageGetGlobalTokenAtIndex(idx);
                 if (tokenHash is not null)
                 {
-                    Contract.Call(tokenHash, "SetPlatformFeeRate", CallFlags.All, new object[] { newRate });
+                    Contract.Call(tokenHash, "setPlatformFeeRate", CallFlags.All, new object[] { newRate });
                     count++;
                 }
             }

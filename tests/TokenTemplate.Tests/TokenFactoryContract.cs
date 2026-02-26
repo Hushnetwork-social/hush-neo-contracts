@@ -79,4 +79,51 @@ public abstract class TokenFactoryContract : SmartContract
 
     [DisplayName("onNEP17Payment")]
     public abstract void OnNEP17Payment(UInt160? from, BigInteger? amount, object? data = null);
+
+    // ── FEAT-078: New getters ─────────────────────────────────────────────────
+
+    [DisplayName("getUpdateFee")]
+    public abstract BigInteger GetUpdateFee();
+
+    [DisplayName("getPlatformFeeRate")]
+    public abstract BigInteger GetPlatformFeeRate();
+
+    [DisplayName("getModeParams")]
+    public abstract object[]? GetModeParams(UInt160? tokenHash);
+
+    // ── FEAT-078: Admin setters ───────────────────────────────────────────────
+
+    [DisplayName("setUpdateFee")]
+    public abstract void SetUpdateFee(BigInteger? newFee);
+
+    // ── FEAT-078: Creator lifecycle methods ───────────────────────────────────
+
+    [DisplayName("mintTokens")]
+    public abstract void MintTokens(UInt160? tokenHash, UInt160? to, BigInteger? amount);
+
+    [DisplayName("setTokenBurnRate")]
+    public abstract void SetTokenBurnRate(UInt160? tokenHash, BigInteger? bps);
+
+    [DisplayName("setTokenMaxSupply")]
+    public abstract void SetTokenMaxSupply(UInt160? tokenHash, BigInteger? newMax);
+
+    [DisplayName("updateTokenMetadata")]
+    public abstract void UpdateTokenMetadata(UInt160? tokenHash, string? imageUrl);
+
+    [DisplayName("setCreatorFee")]
+    public abstract void SetCreatorFee(UInt160? tokenHash, BigInteger? newRate);
+
+    [DisplayName("changeTokenMode")]
+    public abstract void ChangeTokenMode(UInt160? tokenHash, string? newMode, object[]? modeParams);
+
+    [DisplayName("lockToken")]
+    public abstract void LockToken(UInt160? tokenHash);
+
+    // ── FEAT-078: Batch admin methods ─────────────────────────────────────────
+
+    [DisplayName("authorizeAllTokens")]
+    public abstract void AuthorizeAllTokens(UInt160? newFactoryHash, BigInteger? offset, BigInteger? batchSize);
+
+    [DisplayName("setAllTokensPlatformFee")]
+    public abstract void SetAllTokensPlatformFee(BigInteger? newRate, BigInteger? offset, BigInteger? batchSize);
 }

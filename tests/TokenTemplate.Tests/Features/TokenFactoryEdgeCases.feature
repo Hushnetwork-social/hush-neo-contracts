@@ -39,10 +39,10 @@ Feature: TokenFactory — Edge Cases and Guards
     When walletA sends payment with 3 data elements
     Then the transaction is aborted
 
-  Scenario: Data array with null data is rejected
+  Scenario: Data array with null data is accepted as fee accumulation receipt
     Given the factory is deployed and initialized
     When walletA sends payment with null data
-    Then the transaction is aborted
+    Then the transaction succeeds
 
   Scenario: Rejected payment does not update token count
     Given the factory is deployed and initialized

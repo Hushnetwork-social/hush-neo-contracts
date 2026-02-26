@@ -6,6 +6,7 @@ using Neo.SmartContract.Testing;
 using NUnit.Framework;
 using Reqnroll;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
 using System.Text;
@@ -39,6 +40,10 @@ public class TokenFactorySteps
         new object[] { "ValidToken", "VLD", (BigInteger)1000, (BigInteger)8, "community", "", (BigInteger)0 };
 
     private readonly TestContext _context;
+
+    // ── Task 5.4: Named token registry (lifecycle scenarios) and GAS tracking ──
+    private readonly Dictionary<string, UInt160> _namedTokens = new();
+    private BigInteger _factoryGasBefore = BigInteger.Zero;
 
     public TokenFactorySteps(TestContext context)
     {
@@ -768,4 +773,411 @@ public class TokenFactorySteps
         Neo.VM.Types.PrimitiveType pt => new BigInteger(pt.GetSpan()),
         _ => BigInteger.Parse(item?.ToString() ?? "0")
     };
+
+    // ── Task 5.4: GAS balance helper ──────────────────────────────────────────
+
+    private BigInteger GasBalanceOf(UInt160 address)
+    {
+        if (address == null || address == UInt160.Zero) return BigInteger.Zero;
+        return _context.Engine.Native.GAS.BalanceOf(address) ?? BigInteger.Zero;
+    }
+
+    /// <summary>
+    /// Funds a wallet with native GAS from the pre-funded committee or validators address.
+    /// TestEngine wallets start with 0 native GAS; this enables update fee collection tests.
+    /// The validators signer is set temporarily; callers must set their own signer after this.
+    /// </summary>
+    private void FundWalletWithGas(UInt160 walletAddress, BigInteger datoshi)
+    {
+        // Try CommitteeAddress first (receives genesis GAS in InitializeContract).
+        // Fall back to ValidatorsAddress if committee has insufficient funds.
+        foreach (var funder in new[] { _context.Engine.CommitteeAddress, _context.Engine.ValidatorsAddress })
+        {
+            var funderBalance = _context.Engine.Native.GAS.BalanceOf(funder) ?? BigInteger.Zero;
+            if (funderBalance < datoshi) continue;
+
+            var funderSigner = new Signer { Account = funder, Scopes = WitnessScope.CalledByEntry };
+            _context.Engine.SetTransactionSigners(funderSigner);
+            var ok = _context.Engine.Native.GAS.Transfer(funder, walletAddress, datoshi, null);
+            if (ok == true) return;
+        }
+        // Diagnostic: both sources failed — report actual balances in test failure
+        var committeeBalance  = _context.Engine.Native.GAS.BalanceOf(_context.Engine.CommitteeAddress)  ?? BigInteger.Zero;
+        var validatorsBalance = _context.Engine.Native.GAS.BalanceOf(_context.Engine.ValidatorsAddress) ?? BigInteger.Zero;
+        Assert.Fail(
+            $"FundWalletWithGas({datoshi}) failed — no pre-funded source available. " +
+            $"CommitteeBalance={committeeBalance}, ValidatorsBalance={validatorsBalance}");
+    }
+
+    // ── Task 5.4: Background and setup steps (Given) ──────────────────────────
+
+    /// <summary>
+    /// Creates a community token MYTOK with 1,000,000 initial supply via the factory.
+    /// Stores the hash in _namedTokens["MYTOK"] and _context.LastCreatedTokenHash.
+    /// </summary>
+    [Given("walletA has created community token MYTOK")]
+    public void GivenWalletAHasCreatedCommunityTokenMYTOK()
+    {
+        var tokenData = new object[]
+        {
+            "My Token", "MYTOK", (BigInteger)1_000_000, (BigInteger)8,
+            "community", "https://cdn.hushnetwork.social/mytok.png", (BigInteger)0
+        };
+        SimulateGasPayment("walletA", 1_500_000_000, tokenData);
+        Assert.That(_context.LastException, Is.Null,
+            $"MYTOK creation failed: {_context.LastException?.Message}");
+        _namedTokens["MYTOK"] = _context.LastCreatedTokenHash;
+    }
+
+    /// <summary>
+    /// Deploys a TokenTemplate directly with mintable=false.
+    /// NOT registered in factory registry — factory.MintTokens will abort ("Token not found").
+    /// This simulates a non-mintable token from the factory lifecycle perspective.
+    /// </summary>
+    [Given("walletA has created non-mintable token NOMIN")]
+    public void GivenWalletAHasCreatedNonMintableTokenNOMIN()
+    {
+        var nef      = Neo.SmartContract.NefFile.Parse(File.ReadAllBytes(Path.Combine(ArtifactsPath, "TokenTemplate.nef")));
+        var manifest = ContractManifest.Parse(File.ReadAllText(Path.Combine(ArtifactsPath, "TokenTemplate.manifest.json")));
+        _context.Engine.SetTransactionSigners(_context.OwnerSigner);
+        var walletA = GetOrCreateWallet("walletA").Account;
+        // Deploy directly with mintable=0; authorizedFactory=walletA so deploy doesn't reject zero.
+        var nomParams = new object[]
+        {
+            "No Mint Token", "NOMIN", (BigInteger)0, (BigInteger)8, walletA,
+            (BigInteger)0,  // mintable = false
+            (BigInteger)0, (BigInteger)0, "", (BigInteger)0,
+            walletA, (BigInteger)0, (BigInteger)0
+        };
+        var nomToken = _context.Engine.Deploy<TokenTemplateContract>(nef, manifest, nomParams);
+        _namedTokens["NOMIN"] = nomToken.Hash;
+    }
+
+    /// <summary>
+    /// Locks the named token (e.g. MYTOK) via the factory as walletA (the creator).
+    /// Used as a Given setup step for "fails on locked token" scenarios.
+    /// </summary>
+    [Given(@"walletA has locked the (\w+) token via factory")]
+    public void GivenWalletAHasLockedTheTokenViaFactory(string tokenName)
+    {
+        var tokenHash = _namedTokens[tokenName];
+        _context.Engine.SetTransactionSigners(GetOrCreateWallet("walletA"));
+        _context.LastException = null;
+        try { _context.Factory!.LockToken(tokenHash); }
+        catch (Exception ex) { _context.LastException = ex; }
+        Assert.That(_context.LastException, Is.Null,
+            $"LockToken ({tokenName}) failed in Given: {_context.LastException?.Message}");
+    }
+
+    /// <summary>
+    /// Sets the MYTOK mode to the given value before the actual test step.
+    /// Used in ChangeTokenMode transition scenarios.
+    /// </summary>
+    [Given(@"the token mode is ""(\w+)""")]
+    public void GivenTheTokenModeIs(string mode)
+    {
+        var tokenHash = _namedTokens["MYTOK"];
+        _context.Engine.SetTransactionSigners(GetOrCreateWallet("walletA"));
+        _context.LastException = null;
+        try { _context.Factory!.ChangeTokenMode(tokenHash, mode, null); }
+        catch (Exception ex) { _context.LastException = ex; }
+        Assert.That(_context.LastException, Is.Null,
+            $"ChangeTokenMode to '{mode}' failed in Given: {_context.LastException?.Message}");
+    }
+
+    // ── Task 5.4: MintTokens (When) ──────────────────────────────────────────
+
+    /// <summary>Calls factory.MintTokens on MYTOK from the specified wallet.</summary>
+    [When(@"(\w+) calls factory MintTokens (\d+) to (\w+)")]
+    public void WalletCallsFactoryMintTokens(string fromWallet, long amount, string toWallet)
+    {
+        var tokenHash = _namedTokens["MYTOK"];
+        // Fund caller with native GAS so the factory's update-fee GAS.Transfer succeeds.
+        FundWalletWithGas(GetOrCreateWallet(fromWallet).Account, 500_000_000);
+        _factoryGasBefore = GasBalanceOf(_context.Factory!.Hash);
+        // Use WitnessScope.Global: factory calls GAS.Transfer(creator,...) as a nested call,
+        // so CalledByEntry scope would make CheckWitness(creator) return false there.
+        var mintSigner = GetOrCreateWallet(fromWallet);
+        _context.Engine.SetTransactionSigners(new Signer { Account = mintSigner.Account, Scopes = WitnessScope.Global });
+        _context.LastException = null;
+        try
+        {
+            _context.Factory!.MintTokens(
+                tokenHash, GetOrCreateWallet(toWallet).Account, (BigInteger)amount);
+        }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    /// <summary>Calls factory.MintTokens on a named token other than MYTOK.</summary>
+    [When(@"(\w+) calls factory MintTokens on (\w+) (\d+) to (\w+)")]
+    public void WalletCallsFactoryMintTokensOnToken(string fromWallet, string tokenName, long amount, string toWallet)
+    {
+        var tokenHash = _namedTokens[tokenName];
+        _factoryGasBefore = GasBalanceOf(_context.Factory!.Hash);
+        _context.Engine.SetTransactionSigners(GetOrCreateWallet(fromWallet));
+        _context.LastException = null;
+        try
+        {
+            _context.Factory!.MintTokens(
+                tokenHash, GetOrCreateWallet(toWallet).Account, (BigInteger)amount);
+        }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    // ── Task 5.4: SetTokenBurnRate (When) ─────────────────────────────────────
+
+    [When(@"(\w+) calls factory SetTokenBurnRate (\d+)")]
+    public void WalletCallsFactorySetTokenBurnRate(string fromWallet, long bps)
+    {
+        var tokenHash = _namedTokens["MYTOK"];
+        // Fund caller so the factory's update-fee GAS.Transfer succeeds.
+        FundWalletWithGas(GetOrCreateWallet(fromWallet).Account, 500_000_000);
+        _factoryGasBefore = GasBalanceOf(_context.Factory!.Hash);
+        // Use WitnessScope.Global: factory calls GAS.Transfer(creator,...) as a nested call.
+        var burnSigner = GetOrCreateWallet(fromWallet);
+        _context.Engine.SetTransactionSigners(new Signer { Account = burnSigner.Account, Scopes = WitnessScope.Global });
+        _context.LastException = null;
+        try { _context.Factory!.SetTokenBurnRate(tokenHash, (BigInteger)bps); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    // ── Task 5.4: SetTokenMaxSupply (When) ────────────────────────────────────
+
+    [When(@"(\w+) calls factory SetTokenMaxSupply (\d+)")]
+    public void WalletCallsFactorySetTokenMaxSupply(string fromWallet, long newMax)
+    {
+        var tokenHash = _namedTokens["MYTOK"];
+        _factoryGasBefore = GasBalanceOf(_context.Factory!.Hash);
+        _context.Engine.SetTransactionSigners(GetOrCreateWallet(fromWallet));
+        _context.LastException = null;
+        try { _context.Factory!.SetTokenMaxSupply(tokenHash, (BigInteger)newMax); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    // ── Task 5.4: UpdateTokenMetadata (When) ─────────────────────────────────
+
+    [When(@"(\w+) calls factory UpdateTokenMetadata ""(.*)""")]
+    public void WalletCallsFactoryUpdateTokenMetadata(string fromWallet, string imageUrl)
+    {
+        var tokenHash = _namedTokens["MYTOK"];
+        _factoryGasBefore = GasBalanceOf(_context.Factory!.Hash);
+        _context.Engine.SetTransactionSigners(GetOrCreateWallet(fromWallet));
+        _context.LastException = null;
+        try { _context.Factory!.UpdateTokenMetadata(tokenHash, imageUrl); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    // ── Task 5.4: SetCreatorFee (When) ───────────────────────────────────────
+
+    [When(@"(\w+) calls factory SetCreatorFee (\d+)")]
+    public void WalletCallsFactorySetCreatorFee(string fromWallet, long newRate)
+    {
+        var tokenHash = _namedTokens["MYTOK"];
+        // Fund caller so the factory's update-fee GAS.Transfer succeeds.
+        FundWalletWithGas(GetOrCreateWallet(fromWallet).Account, 500_000_000);
+        _factoryGasBefore = GasBalanceOf(_context.Factory!.Hash);
+        // Use WitnessScope.Global: factory calls GAS.Transfer(creator,...) as a nested call.
+        var feeSigner = GetOrCreateWallet(fromWallet);
+        _context.Engine.SetTransactionSigners(new Signer { Account = feeSigner.Account, Scopes = WitnessScope.Global });
+        _context.LastException = null;
+        try { _context.Factory!.SetCreatorFee(tokenHash, (BigInteger)newRate); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    // ── Task 5.4: ChangeTokenMode (When) ─────────────────────────────────────
+
+    [When(@"(\w+) calls factory ChangeTokenMode to ""(\w+)""")]
+    public void WalletCallsFactoryChangeTokenMode(string fromWallet, string newMode)
+    {
+        var tokenHash = _namedTokens["MYTOK"];
+        _factoryGasBefore = GasBalanceOf(_context.Factory!.Hash);
+        _context.Engine.SetTransactionSigners(GetOrCreateWallet(fromWallet));
+        _context.LastException = null;
+        try { _context.Factory!.ChangeTokenMode(tokenHash, newMode, null); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [When(@"(\w+) calls factory ChangeTokenMode to ""(\w+)"" with params")]
+    public void WalletCallsFactoryChangeTokenModeWithParams(string fromWallet, string newMode)
+    {
+        var tokenHash  = _namedTokens["MYTOK"];
+        _factoryGasBefore = GasBalanceOf(_context.Factory!.Hash);
+        _context.Engine.SetTransactionSigners(GetOrCreateWallet(fromWallet));
+        _context.LastException = null;
+        // Sample mode params (e.g. speculation thresholds)
+        var modeParams = new object[] { (BigInteger)1000, (BigInteger)5000 };
+        try { _context.Factory!.ChangeTokenMode(tokenHash, newMode, modeParams); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    // ── Task 5.4: LockToken (When) ────────────────────────────────────────────
+
+    [When(@"(\w+) calls factory LockToken")]
+    public void WalletCallsFactoryLockToken(string fromWallet)
+    {
+        var tokenHash = _namedTokens["MYTOK"];
+        _factoryGasBefore = GasBalanceOf(_context.Factory!.Hash);
+        _context.Engine.SetTransactionSigners(GetOrCreateWallet(fromWallet));
+        _context.LastException = null;
+        try { _context.Factory!.LockToken(tokenHash); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    // ── Task 5.4: Batch admin methods (When) ──────────────────────────────────
+
+    [When(@"the owner calls factory AuthorizeAllTokens (\w+) offset (\d+) batchSize (\d+)")]
+    public void OwnerCallsFactoryAuthorizeAllTokens(string newFactoryWallet, long offset, long batchSize)
+    {
+        _context.Engine.SetTransactionSigners(_context.OwnerSigner);
+        var newFactoryAddr = GetOrCreateWallet(newFactoryWallet).Account;
+        _context.LastException = null;
+        try
+        {
+            _context.Factory!.AuthorizeAllTokens(
+                newFactoryAddr, (BigInteger)offset, (BigInteger)batchSize);
+        }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [When(@"(\w+) calls factory AuthorizeAllTokens (\w+) offset (\d+) batchSize (\d+)")]
+    public void WalletCallsFactoryAuthorizeAllTokens(
+        string fromWallet, string newFactoryWallet, long offset, long batchSize)
+    {
+        _context.Engine.SetTransactionSigners(GetOrCreateWallet(fromWallet));
+        var newFactoryAddr = GetOrCreateWallet(newFactoryWallet).Account;
+        _context.LastException = null;
+        try
+        {
+            _context.Factory!.AuthorizeAllTokens(
+                newFactoryAddr, (BigInteger)offset, (BigInteger)batchSize);
+        }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [When(@"the owner calls factory SetAllTokensPlatformFee (\d+) offset (\d+) batchSize (\d+)")]
+    public void OwnerCallsFactorySetAllTokensPlatformFee(long newRate, long offset, long batchSize)
+    {
+        _context.Engine.SetTransactionSigners(_context.OwnerSigner);
+        _context.LastException = null;
+        try
+        {
+            _context.Factory!.SetAllTokensPlatformFee(
+                (BigInteger)newRate, (BigInteger)offset, (BigInteger)batchSize);
+        }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    // ── Task 5.4: Token balance on named token (Then) ─────────────────────────
+
+    [Then(@"(\w+)'s token balance on (\w+) is (\d+)")]
+    public void ThenWalletTokenBalanceOnNamedTokenIs(string wallet, string tokenName, long expected)
+    {
+        Assert.That(_context.LastException, Is.Null,
+            $"Previous step threw: {_context.LastException?.Message}");
+        var tokenHash = _namedTokens[tokenName];
+        var token     = _context.Engine.FromHash<TokenTemplateContract>(tokenHash, true);
+        Assert.That(token.BalanceOf(GetOrCreateWallet(wallet).Account),
+            Is.EqualTo((BigInteger)expected));
+    }
+
+    // ── Task 5.4: Factory GAS delta assertions (Then) ─────────────────────────
+
+    [Then("the factory GAS balance increased from the operation")]
+    public void ThenFactoryGasBalanceIncreased()
+    {
+        var current = GasBalanceOf(_context.Factory!.Hash);
+        Assert.That(current, Is.GreaterThan(_factoryGasBefore),
+            $"Expected factory GAS balance to increase " +
+            $"(before={_factoryGasBefore}, current={current})");
+    }
+
+    [Then("the factory GAS balance did not increase from the operation")]
+    public void ThenFactoryGasBalanceDidNotIncrease()
+    {
+        var current = GasBalanceOf(_context.Factory!.Hash);
+        Assert.That(current, Is.EqualTo(_factoryGasBefore),
+            $"Expected factory GAS balance to stay the same " +
+            $"(before={_factoryGasBefore}, current={current})");
+    }
+
+    // ── Task 5.4: Registry field assertions (Then) ────────────────────────────
+
+    [Then(@"the registry token burn rate is (\d+)")]
+    public void ThenRegistryTokenBurnRateIs(long expected)
+    {
+        Assert.That(_context.LastException, Is.Null,
+            $"Previous step threw: {_context.LastException?.Message}");
+        var info = _context.Factory!.GetToken(_namedTokens["MYTOK"]);
+        Assert.That(info, Is.Not.Null, "GetToken returned null");
+        // tokenInfo[7] = burnRate
+        Assert.That(ParseBigInteger(info![7]), Is.EqualTo((BigInteger)expected));
+    }
+
+    [Then(@"the registry token max supply is (\d+)")]
+    public void ThenRegistryTokenMaxSupplyIs(long expected)
+    {
+        Assert.That(_context.LastException, Is.Null,
+            $"Previous step threw: {_context.LastException?.Message}");
+        var info = _context.Factory!.GetToken(_namedTokens["MYTOK"]);
+        Assert.That(info, Is.Not.Null, "GetToken returned null");
+        // tokenInfo[8] = maxSupply
+        Assert.That(ParseBigInteger(info![8]), Is.EqualTo((BigInteger)expected));
+    }
+
+    [Then("the registry token is locked")]
+    public void ThenRegistryTokenIsLocked()
+    {
+        Assert.That(_context.LastException, Is.Null,
+            $"Previous step threw: {_context.LastException?.Message}");
+        var info = _context.Factory!.GetToken(_namedTokens["MYTOK"]);
+        Assert.That(info, Is.Not.Null, "GetToken returned null");
+        // tokenInfo[9] = locked (1 = locked)
+        Assert.That(ParseBigInteger(info![9]), Is.EqualTo(BigInteger.One),
+            "Expected token to be locked (tokenInfo[9] == 1)");
+    }
+
+    [Then(@"the registry token mode is ""(\w+)""")]
+    public void ThenRegistryTokenModeIs(string expected)
+    {
+        Assert.That(_context.LastException, Is.Null,
+            $"Previous step threw: {_context.LastException?.Message}");
+        var info = _context.Factory!.GetToken(_namedTokens["MYTOK"]);
+        Assert.That(info, Is.Not.Null, "GetToken returned null");
+        // tokenInfo[3] = mode
+        Assert.That(ParseString(info![3]), Is.EqualTo(expected));
+    }
+
+    [Then("the mode params are stored for MYTOK")]
+    public void ThenModeParamsAreStoredForMYTOK()
+    {
+        Assert.That(_context.LastException, Is.Null,
+            $"Previous step threw: {_context.LastException?.Message}");
+        var modeParams = _context.Factory!.GetModeParams(_namedTokens["MYTOK"]);
+        Assert.That(modeParams, Is.Not.Null, "Expected modeParams to be stored but got null");
+        Assert.That(modeParams!.Length, Is.GreaterThan(0), "Expected non-empty modeParams");
+    }
+
+    // ── Task 5.4: Token contract property assertions (Then) ──────────────────
+
+    [Then(@"(\w+)'s authorizedFactory is (\w+)'s address")]
+    public void ThenTokenAuthorizedFactoryIs(string tokenName, string wallet)
+    {
+        Assert.That(_context.LastException, Is.Null,
+            $"Previous step threw: {_context.LastException?.Message}");
+        var tokenHash = _namedTokens[tokenName];
+        var token     = _context.Engine.FromHash<TokenTemplateContract>(tokenHash, true);
+        var expected  = GetOrCreateWallet(wallet).Account;
+        Assert.That(token.getAuthorizedFactory(), Is.EqualTo(expected),
+            $"Expected {tokenName}.authorizedFactory == {wallet} ({expected})");
+    }
+
+    [Then(@"(\w+)'s platformFeeRate is (\d+)")]
+    public void ThenTokenPlatformFeeRateIs(string tokenName, long expected)
+    {
+        Assert.That(_context.LastException, Is.Null,
+            $"Previous step threw: {_context.LastException?.Message}");
+        var tokenHash = _namedTokens[tokenName];
+        var token     = _context.Engine.FromHash<TokenTemplateContract>(tokenHash, true);
+        Assert.That(token.getPlatformFeeRate(), Is.EqualTo((BigInteger)expected));
+    }
 }

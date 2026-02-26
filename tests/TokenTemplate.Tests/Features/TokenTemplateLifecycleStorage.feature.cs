@@ -18,18 +18,19 @@ namespace TokenTemplate.Tests.Features
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Reqnroll", "3.0.0.0")]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     [global::NUnit.Framework.TestFixtureAttribute()]
-    [global::NUnit.Framework.DescriptionAttribute("TokenFactory — Edge Cases and Guards")]
+    [global::NUnit.Framework.DescriptionAttribute("TokenTemplate — Lifecycle Storage Fields")]
     [global::NUnit.Framework.FixtureLifeCycleAttribute(global::NUnit.Framework.LifeCycle.InstancePerTestCase)]
-    public partial class TokenFactoryEdgeCasesAndGuardsFeature
+    public partial class TokenTemplateLifecycleStorageFieldsFeature
     {
         
         private global::Reqnroll.ITestRunner testRunner;
         
         private static string[] featureTags = ((string[])(null));
         
-        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "TokenFactory — Edge Cases and Guards", null, global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
+        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "TokenTemplate — Lifecycle Storage Fields", "  Verify that all new lifecycle storage fields (FEAT-078) are persisted correctly" +
+                "\r\n  by _deploy() and that validation guards reject invalid inputs.", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
         
-#line 1 "TokenFactoryEdgeCases.feature"
+#line 1 "TokenTemplateLifecycleStorage.feature"
 #line hidden
         
         [global::NUnit.Framework.OneTimeSetUpAttribute()]
@@ -105,29 +106,29 @@ namespace TokenTemplate.Tests.Features
         
         public virtual async global::System.Threading.Tasks.Task FeatureBackgroundAsync()
         {
-#line 3
+#line 5
   #line hidden
-#line 4
-    await testRunner.GivenAsync("the TokenFactory test engine is initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line 6
+    await testRunner.GivenAsync("the TokenTemplate test engine is initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
         }
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/TokenFactoryEdgeCases.feature.ndjson", 12);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/TokenTemplateLifecycleStorage.feature.ndjson", 11);
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Non-GAS token payment is rejected")]
-        public async global::System.Threading.Tasks.Task Non_GASTokenPaymentIsRejected()
+        [global::NUnit.Framework.DescriptionAttribute("Deploy with authorizedFactory stores the address")]
+        public async global::System.Threading.Tasks.Task DeployWithAuthorizedFactoryStoresTheAddress()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "0";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Non-GAS token payment is rejected", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Deploy with authorizedFactory stores the address", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 6
+#line 8
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -137,33 +138,30 @@ namespace TokenTemplate.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-#line 3
+#line 5
   await this.FeatureBackgroundAsync();
 #line hidden
-#line 7
-    await testRunner.GivenAsync("the factory is deployed and initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 8
-    await testRunner.WhenAsync("a non-GAS token is transferred to the factory", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
 #line 9
-    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.WhenAsync("the contract is deployed with owner walletA and authorizedFactory walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 10
+    await testRunner.ThenAsync("getAuthorizedFactory() returns walletB\'s address", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("GAS below minimum fee is rejected")]
-        public async global::System.Threading.Tasks.Task GASBelowMinimumFeeIsRejected()
+        [global::NUnit.Framework.DescriptionAttribute("Deploy with platformFeeRate stores the rate")]
+        public async global::System.Threading.Tasks.Task DeployWithPlatformFeeRateStoresTheRate()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "1";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("GAS below minimum fee is rejected", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Deploy with platformFeeRate stores the rate", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 11
+#line 12
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -173,30 +171,27 @@ namespace TokenTemplate.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-#line 3
+#line 5
   await this.FeatureBackgroundAsync();
 #line hidden
-#line 12
-    await testRunner.GivenAsync("the factory is deployed and initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
 #line 13
-    await testRunner.WhenAsync("walletA transfers 100 GAS to the factory with valid token params", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.WhenAsync("the contract is deployed with owner walletA and platformFeeRate 1000000", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 14
-    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("getPlatformFeeRate() returns 1000000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Factory not initialized rejects any payment")]
-        public async global::System.Threading.Tasks.Task FactoryNotInitializedRejectsAnyPayment()
+        [global::NUnit.Framework.DescriptionAttribute("Deploy with creatorFeeRate stores the rate")]
+        public async global::System.Threading.Tasks.Task DeployWithCreatorFeeRateStoresTheRate()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "2";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Factory not initialized rejects any payment", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Deploy with creatorFeeRate stores the rate", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 16
@@ -209,33 +204,30 @@ namespace TokenTemplate.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-#line 3
+#line 5
   await this.FeatureBackgroundAsync();
 #line hidden
 #line 17
-    await testRunner.GivenAsync("a freshly deployed TokenFactory", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.WhenAsync("the contract is deployed with owner walletA and creatorFeeRate 500000", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 18
-    await testRunner.WhenAsync("walletA transfers 1500000000 GAS to the factory with valid token params", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 19
-    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("getCreatorFeeRate() returns 500000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Factory paused rejects new token creation")]
-        public async global::System.Threading.Tasks.Task FactoryPausedRejectsNewTokenCreation()
+        [global::NUnit.Framework.DescriptionAttribute("getBurnRate() returns 0 on fresh deploy")]
+        public async global::System.Threading.Tasks.Task GetBurnRateReturns0OnFreshDeploy()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "3";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Factory paused rejects new token creation", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("getBurnRate() returns 0 on fresh deploy", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 21
+#line 20
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -245,36 +237,30 @@ namespace TokenTemplate.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-#line 3
+#line 5
   await this.FeatureBackgroundAsync();
 #line hidden
+#line 21
+    await testRunner.WhenAsync("the contract is deployed with default parameters", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
 #line 22
-    await testRunner.GivenAsync("the factory is deployed and initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 23
-    await testRunner.AndAsync("the factory is paused by the owner", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 24
-    await testRunner.WhenAsync("walletA transfers 1500000000 GAS to the factory with valid token params", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 25
-    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("getBurnRate() returns 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Mode \"premium\" is rejected")]
-        public async global::System.Threading.Tasks.Task ModePremiumIsRejected()
+        [global::NUnit.Framework.DescriptionAttribute("Deploy rejects zero authorizedFactory")]
+        public async global::System.Threading.Tasks.Task DeployRejectsZeroAuthorizedFactory()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "4";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Mode \"premium\" is rejected", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Deploy rejects zero authorizedFactory", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 27
+#line 24
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -284,31 +270,60 @@ namespace TokenTemplate.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-#line 3
+#line 5
   await this.FeatureBackgroundAsync();
 #line hidden
-#line 28
-    await testRunner.GivenAsync("the factory is deployed and initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line 25
+    await testRunner.WhenAsync("deploying the contract with zero authorizedFactory", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 29
-    await testRunner.WhenAsync("walletA transfers 1500000000 GAS to the factory with token params \"T\" \"T\" 100 8 \"" +
-                        "premium\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 30
-    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line 26
+    await testRunner.ThenAsync("the deploy is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Mode \"crowdfund\" is rejected")]
-        public async global::System.Threading.Tasks.Task ModeCrowdfundIsRejected()
+        [global::NUnit.Framework.DescriptionAttribute("Deploy rejects platformFeeRate above maximum")]
+        public async global::System.Threading.Tasks.Task DeployRejectsPlatformFeeRateAboveMaximum()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "5";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Mode \"crowdfund\" is rejected", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Deploy rejects platformFeeRate above maximum", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 28
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 5
+  await this.FeatureBackgroundAsync();
+#line hidden
+#line 29
+    await testRunner.WhenAsync("deploying the contract with platformFeeRate 10000001", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 30
+    await testRunner.ThenAsync("the deploy is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Deploy rejects creatorFeeRate above maximum")]
+        public async global::System.Threading.Tasks.Task DeployRejectsCreatorFeeRateAboveMaximum()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "6";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Deploy rejects creatorFeeRate above maximum", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 32
@@ -321,70 +336,30 @@ namespace TokenTemplate.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-#line 3
+#line 5
   await this.FeatureBackgroundAsync();
 #line hidden
 #line 33
-    await testRunner.GivenAsync("the factory is deployed and initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.WhenAsync("deploying the contract with creatorFeeRate 5000001", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 34
-    await testRunner.WhenAsync("walletA transfers 1500000000 GAS to the factory with token params \"T\" \"T\" 100 8 \"" +
-                        "crowdfund\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 35
-    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("the deploy is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Data array with only 3 elements is rejected")]
-        public async global::System.Threading.Tasks.Task DataArrayWithOnly3ElementsIsRejected()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "6";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Data array with only 3 elements is rejected", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
-            string[] tagsOfRule = ((string[])(null));
-            global::Reqnroll.RuleInfo ruleInfo = null;
-#line 37
-  this.ScenarioInitialize(scenarioInfo, ruleInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                await testRunner.SkipScenarioAsync();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 3
-  await this.FeatureBackgroundAsync();
-#line hidden
-#line 38
-    await testRunner.GivenAsync("the factory is deployed and initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 39
-    await testRunner.WhenAsync("walletA sends payment with 3 data elements", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 40
-    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Data array with null data is accepted as fee accumulation receipt")]
-        public async global::System.Threading.Tasks.Task DataArrayWithNullDataIsAcceptedAsFeeAccumulationReceipt()
+        [global::NUnit.Framework.DescriptionAttribute("Deploy accepts creatorFeeRate of 0")]
+        public async global::System.Threading.Tasks.Task DeployAcceptsCreatorFeeRateOf0()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "7";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Data array with null data is accepted as fee accumulation receipt", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Deploy accepts creatorFeeRate of 0", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 42
+#line 36
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -394,16 +369,13 @@ namespace TokenTemplate.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-#line 3
+#line 5
   await this.FeatureBackgroundAsync();
 #line hidden
-#line 43
-    await testRunner.GivenAsync("the factory is deployed and initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line 37
+    await testRunner.WhenAsync("the contract is deployed with owner walletA and creatorFeeRate 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 44
-    await testRunner.WhenAsync("walletA sends payment with null data", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 45
+#line 38
     await testRunner.ThenAsync("the transaction succeeds", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -411,16 +383,16 @@ namespace TokenTemplate.Tests.Features
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Rejected payment does not update token count")]
-        public async global::System.Threading.Tasks.Task RejectedPaymentDoesNotUpdateTokenCount()
+        [global::NUnit.Framework.DescriptionAttribute("getAuthorizedFactory returns factory set at deploy")]
+        public async global::System.Threading.Tasks.Task GetAuthorizedFactoryReturnsFactorySetAtDeploy()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "8";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Rejected payment does not update token count", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("getAuthorizedFactory returns factory set at deploy", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 47
+#line 40
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -430,56 +402,17 @@ namespace TokenTemplate.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-#line 3
+#line 5
   await this.FeatureBackgroundAsync();
 #line hidden
-#line 48
-    await testRunner.GivenAsync("the factory is deployed and initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line 41
+    await testRunner.WhenAsync("the contract is deployed with owner walletA and authorizedFactory walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 49
-    await testRunner.WhenAsync("walletA transfers 100 GAS to the factory with valid token params", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line 42
+    await testRunner.AndAsync("getAuthorizedFactory() is called", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 50
-    await testRunner.ThenAsync("getTokenCount() is still 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Token count is preserved on failed creation")]
-        public async global::System.Threading.Tasks.Task TokenCountIsPreservedOnFailedCreation()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "9";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Token count is preserved on failed creation", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
-            string[] tagsOfRule = ((string[])(null));
-            global::Reqnroll.RuleInfo ruleInfo = null;
-#line 52
-  this.ScenarioInitialize(scenarioInfo, ruleInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                await testRunner.SkipScenarioAsync();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 3
-  await this.FeatureBackgroundAsync();
-#line hidden
-#line 53
-    await testRunner.GivenAsync("the factory is deployed and initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 54
-    await testRunner.AndAsync("walletA has already created 1 token", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 55
-    await testRunner.WhenAsync("walletA sends a payment that is rejected", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 56
-    await testRunner.ThenAsync("getTokenCount() is still 1", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line 43
+    await testRunner.ThenAsync("the result equals walletB\'s address", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();

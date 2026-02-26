@@ -297,7 +297,11 @@ public class DomainSteps
     public void GivenOwnerHasLockedContract()
     {
         SignAs("walletA");
-        _context.Engine.OnGetCallingScriptHash = (_, _) => _context.OwnerSigner.Account;
+        // lock() requires CallingScriptHash == authorizedFactory.
+        // When deployed without an explicit factory, factory defaults to owner (walletA).
+        // When deployed with an explicit factory (e.g. walletB), we must use that factory hash.
+        var factory = _context.Contract!.getAuthorizedFactory() ?? _context.OwnerSigner.Account;
+        _context.Engine.OnGetCallingScriptHash = (_, _) => factory;
         try { _context.Contract!.Lock(); }
         finally { _context.Engine.OnGetCallingScriptHash = null; }
     }

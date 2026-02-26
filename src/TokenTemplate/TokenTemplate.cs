@@ -281,12 +281,12 @@ namespace Neo.SmartContract.Template
             OnBurnRateSet(Runtime.CallingScriptHash, bps, Runtime.Time);
         }
 
-        // Updates the IPFS/HTTP metadata URI. Empty string clears the URI.
+        // Updates the IPFS/HTTP metadata URI. Must be a non-empty string.
         public static void SetMetadataUri(string uri)
         {
             ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
             ExecutionEngine.Assert(Runtime.CallingScriptHash == StorageGetAuthorizedFactory(), "No authorization");
-            ExecutionEngine.Assert(uri != null, "URI must not be null");
+            ExecutionEngine.Assert(uri != null && uri.Length > 0, "URI must not be null or empty");
             StorageSetMetadataUri(uri);
             OnMetadataUriSet(Runtime.CallingScriptHash, uri, Runtime.Time);
         }
@@ -411,13 +411,20 @@ namespace Neo.SmartContract.Template
                         if (burnAmount > 0)
                         {
                             ExecutionEngine.Assert(amount > burnAmount, "Burn amount exceeds transfer amount");
-                            // Call base Transfer directly to avoid re-entering fee logic.
-                            // from != 0, to == 0 → this inner call skips token burn (no recursion).
-                            Nep17Token.Transfer(from, UInt160.Zero, burnAmount, null);
+                            // Destroy burnt tokens — reduces totalSupply and fires Transfer(from, null, burnAmount).
+                            Burn(from, burnAmount);
                             amount -= burnAmount;
                         }
                     }
                 }
+            }
+
+            // When to is address(0), destroy the tokens (reduces totalSupply) rather than
+            // transferring to the zero address (which would leave totalSupply unchanged).
+            if (to == UInt160.Zero)
+            {
+                Burn(from, amount);
+                return true;
             }
 
             return Nep17Token.Transfer(from, to, amount, data);
@@ -431,7 +438,8 @@ namespace Neo.SmartContract.Template
 
             UInt160 caller = Runtime.Transaction.Sender;
             ExecutionEngine.Assert(Runtime.CheckWitness(caller), "No Authorization");
-            Transfer(caller, UInt160.Zero, amount, null);
+            ExecutionEngine.Assert(BalanceOf(caller) >= amount, "Insufficient balance");
+            ExecutionEngine.Assert(Transfer(caller, UInt160.Zero, amount, null), "Burn failed");
         }
 
         // Owner-only direct mint. Retained as creator fallback; does not collect fees.
