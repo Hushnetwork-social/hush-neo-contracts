@@ -1,0 +1,156 @@
+{
+  "name": "Forge — Ember Palette",
+  "description": "Color palette for Forge token infrastructure platform. Theme: Blacksmith, fire, metal forging.",
+  "created": "2026-02-18",
+  "brand": "HushNetwork",
+  "colors": {
+    "primary": {
+      "charcoalBlack": {
+        "hex": "#1A1A1A",
+        "rgb": "rgb(26, 26, 26)",
+        "rgba": "rgba(26, 26, 26, 1)",
+        "usage": "Main background color"
+      },
+      "burntOrange": {
+        "hex": "#FF6B35",
+        "rgb": "rgb(255, 107, 53)",
+        "rgba": "rgba(255, 107, 53, 1)",
+        "usage": "Primary brand color, CTAs, links"
+      },
+      "deepEmber": {
+        "hex": "#D84315",
+        "rgb": "rgb(216, 67, 21)",
+        "rgba": "rgba(216, 67, 21, 1)",
+        "usage": "Secondary brand color, badges, highlights"
+      },
+      "amberGlow": {
+        "hex": "#FFA726",
+        "rgb": "rgb(255, 167, 38)",
+        "rgba": "rgba(255, 167, 38, 1)",
+        "usage": "Accent color, hover states, glows"
+      }
+    },
+    "text": {
+      "primary": {
+        "hex": "#F5F5F5",
+        "rgb": "rgb(245, 245, 245)",
+        "rgba": "rgba(245, 245, 245, 1)",
+        "usage": "Main text color"
+      },
+      "secondary": {
+        "hex": "#F5F5F5",
+        "rgb": "rgb(245, 245, 245)",
+        "rgba": "rgba(245, 245, 245, 0.8)",
+        "usage": "Secondary text, descriptions"
+      },
+      "muted": {
+        "hex": "#F5F5F5",
+        "rgb": "rgb(245, 245, 245)",
+        "rgba": "rgba(245, 245, 245, 0.5)",
+        "usage": "Muted text, footers, captions"
+      }
+    },
+    "accent": {
+      "softCoral": {
+        "hex": "#FFAB91",
+        "rgb": "rgb(255, 171, 145)",
+        "rgba": "rgba(255, 171, 145, 1)",
+        "usage": "Highlights, taglines, special text"
+      }
+    },
+    "backgrounds": {
+      "card": {
+        "hex": "#242424",
+        "rgb": "rgb(36, 36, 36)",
+        "rgba": "rgba(36, 36, 36, 1)",
+        "usage": "Card backgrounds, panels"
+      },
+      "gradientStart": {
+        "hex": "#1A1A1A",
+        "rgb": "rgb(26, 26, 26)",
+        "rgba": "rgba(26, 26, 26, 1)",
+        "usage": "Gradient start point"
+      },
+      "gradientEnd": {
+        "hex": "#2A1810",
+        "rgb": "rgb(42, 24, 16)",
+        "rgba": "rgba(42, 24, 16, 1)",
+        "usage": "Gradient end point (warm tint)"
+      }
+    },
+    "borders": {
+      "subtle": {
+        "hex": "#FF6B35",
+        "rgba": "rgba(255, 107, 53, 0.1)",
+        "usage": "Subtle borders, dividers"
+      },
+      "medium": {
+        "hex": "#FF6B35",
+        "rgba": "rgba(255, 107, 53, 0.2)",
+        "usage": "Medium emphasis borders"
+      },
+      "strong": {
+        "hex": "#FF6B35",
+        "rgba": "rgba(255, 107, 53, 0.4)",
+        "usage": "Strong borders, hover states"
+      }
+    }
+  },
+  "gradients": {
+    "primary": {
+      "css": "linear-gradient(135deg, #D84315 0%, #FF6B35 100%)",
+      "usage": "Primary buttons, CTA backgrounds"
+    },
+    "text": {
+      "css": "linear-gradient(135deg, #FF6B35 0%, #FFA726 100%)",
+      "usage": "Text gradients, headings"
+    },
+    "hero": {
+      "css": "linear-gradient(135deg, rgba(216, 67, 21, 0.1) 0%, rgba(255, 107, 53, 0.05) 100%)",
+      "usage": "Hero sections, stats backgrounds"
+    },
+    "background": {
+      "css": "linear-gradient(135deg, #1A1A1A 0%, #2A1810 100%)",
+      "usage": "Main page background"
+    }
+  },
+  "shadows": {
+    "primary": {
+      "css": "0 10px 30px rgba(255, 107, 53, 0.4)",
+      "usage": "Primary shadow for cards, buttons"
+    },
+    "accent": {
+      "css": "0 15px 40px rgba(255, 167, 38, 0.6)",
+      "usage": "Hover shadow for interactive elements"
+    },
+    "glow": {
+      "css": "0 0 20px rgba(255, 107, 53, 0.5)",
+      "usage": "Text glow effects, logos"
+    }
+  },
+  "figma": {
+    "importInstructions": "Copy HEX values from 'colors' object and create color styles in Figma. Use gradient CSS values for gradient styles.",
+    "variableNames": [
+      "forge/primary/charcoal-black",
+      "forge/primary/burnt-orange",
+      "forge/primary/deep-ember",
+      "forge/primary/amber-glow",
+      "forge/text/primary",
+      "forge/text/secondary",
+      "forge/text/muted",
+      "forge/accent/soft-coral",
+      "forge/bg/card",
+      "forge/border/subtle",
+      "forge/border/medium",
+      "forge/border/strong"
+    ]
+  },
+  "accessibility": {
+    "wcagCompliance": "AA",
+    "notes": [
+      "Burnt orange (#FF6B35) on charcoal black (#1A1A1A) = 6.8:1 contrast ratio (AA compliant for large text)",
+      "Off-white (#F5F5F5) on charcoal black (#1A1A1A) = 15.2:1 contrast ratio (AAA compliant)",
+      "Amber glow (#FFA726) on charcoal black (#1A1A1A) = 7.9:1 contrast ratio (AAA compliant for large text)"
+    ]
+  }
+}

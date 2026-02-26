@@ -29,6 +29,14 @@
           CopyToOutputDirectory="PreserveNewest"
           Link="artifacts\TokenTemplate.manifest.json" />
 
+    <!-- TokenFactory contract artifacts (built by src/TokenFactory) -->
+    <None Include="..\..\src\TokenFactory\bin\sc\TokenFactory.nef"
+          CopyToOutputDirectory="PreserveNewest"
+          Link="artifacts\TokenFactory.nef" />
+    <None Include="..\..\src\TokenFactory\bin\sc\TokenFactory.manifest.json"
+          CopyToOutputDirectory="PreserveNewest"
+          Link="artifacts\TokenFactory.manifest.json" />
+
     <!-- SpikeDeploy contract artifacts (built by src/SpikeDeploy) -->
     <None Include="..\..\src\SpikeDeploy\bin\sc\SpikeDeploy.nef"
           CopyToOutputDirectory="PreserveNewest"

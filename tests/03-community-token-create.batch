@@ -1,13 +1,46 @@
-# Test: Create a Community token via the factory
-# Run with: neoxp batch tests/03-community-token-create.batch
+# Test: Create a Community token via the factory (GAS payment → onNEP17Payment)
+# Run with: neoxp batch tests/03-community-token-create.batch --input devnet/devnet.neo-express --reset
 #
-# Ephemeral chain — run with: neoxp run --discard --seconds-per-block 1
-# This test verifies the full flow: factory receives GAS, deploys a new
-# NEP-17 token, mints supply to the creator, and registers in the registry.
+# PREREQUISITE: Factory must be deployed and initialized before running this batch.
+#               Run 02-token-factory-deploy.batch first, then call setNefAndManifest via CLI:
+#
+#   neoxp batch tests/02-token-factory-deploy.batch --input devnet/devnet.neo-express --reset
+#   neoxp contract invoke TokenFactory setNefAndManifest \
+#       @src/TokenTemplate/bin/sc/TokenTemplate.nef \
+#       "$(Get-Content src/TokenTemplate/bin/sc/TokenTemplate.manifest.json -Raw)" \
+#       --input devnet/devnet.neo-express -a deployer
+#
+# NOTE: The GAS transfer with onNEP17Payment data requires neoxp transfer syntax.
+#       The data argument is a JSON array passed to the NEP-17 transfer callback.
+#       Minimum fee: 1,500,000,000 datoshi (15 GAS) per token creation.
+#
+# Token creation data format: ["name", "symbol", initialSupply, decimals, "mode"]
+#   name          = token name (string)
+#   symbol        = ticker symbol (string)
+#   initialSupply = total supply minted to creator (integer)
+#   decimals      = decimal places (integer, typically 8)
+#   mode          = "community" (only supported mode in FEAT-070)
 
+# Fund wallets from genesis
 transfer 1000 GAS genesis deployer
 transfer 100 GAS genesis alice
-contract deploy ./src/TokenFactory/bin/sc/TokenFactory.nef genesis
-# Alice creates a Community token (name=COFFEE, symbol=COFFEE, supply=1000000)
-# contract invoke TokenFactory createToken --account alice ...
-contract run TokenFactory getTokenCount --results
+
+# Deploy the factory (deployer = owner)
+contract deploy ../src/TokenFactory/bin/sc/TokenFactory.nef deployer '["NVPBT4gwfokzBXgqHTC68KWWop1M2AWgYY"]'
+
+# Verify factory is NOT yet initialized (isInitialized should return false)
+contract run TokenFactory isInitialized -a deployer
+
+# NOTE: setNefAndManifest must be called via CLI (see instructions above).
+# After initialization, alice can create a token by sending GAS to the factory.
+# The transfer command below triggers onNEP17Payment with token creation params.
+
+# Alice creates a Community token: COFFEE, 1M supply, 8 decimals
+# Sends 15 GAS (1,500,000,000 datoshi) to the factory with token creation data
+transfer 15 GAS alice TokenFactory '["CommunityToken","COFFEE",1000000,8,"community"]'
+
+# Verify the token was created
+contract run TokenFactory getTokenCount -a deployer
+
+# Query alice's created tokens (page 0, up to 10 results)
+contract run TokenFactory getTokensByCreator NVpbeN5odrb4KaqbT6TF7jLFRfXh4j7khK 0 10 -a deployer

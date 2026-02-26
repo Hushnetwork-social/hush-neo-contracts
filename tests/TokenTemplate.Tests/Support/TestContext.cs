@@ -47,6 +47,17 @@ public class TestContext
     /// <summary>Notifications captured from the last contract invocation.</summary>
     public List<Neo.VM.Types.Array> LastNotifications { get; } = new();
 
+    // ── Factory-specific state ────────────────────────────────────────────────
+
+    /// <summary>The deployed TokenFactory contract proxy (factory scenarios).</summary>
+    public TokenFactoryContract? Factory { get; set; }
+
+    /// <summary>Hash of the last token deployed by the factory (factory scenarios).</summary>
+    public UInt160 LastCreatedTokenHash { get; set; } = UInt160.Zero;
+
+    /// <summary>GAS consumed by the last TokenFactory Deploy() call, in datoshi.</summary>
+    public long GasConsumedByFactoryDeploy { get; set; }
+
     // ── Spike-specific state ──────────────────────────────────────────────────
 
     /// <summary>The deployed SpikeDeploy contract proxy (spike scenarios only).</summary>

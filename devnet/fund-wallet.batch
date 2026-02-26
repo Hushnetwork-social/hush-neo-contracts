@@ -1,0 +1,11 @@
+# Fund NeoLine test wallets with GAS for manual testing
+# Run with (devnet must be STOPPED first):
+#   neoxp batch devnet/fund-wallet.batch -i devnet/devnet.neo-express
+#
+# After running, restart devnet with:
+#   neoxp run --input hush-neo-contracts/devnet/devnet.neo-express --discard
+#
+# Note: neoxp batch writes to RocksDB, so the funded state survives --discard restarts.
+
+# DEV_Genesis wallet used in NeoLine (node1 default account)
+transfer 10000 GAS genesis NhZLfpM68NXPxt8P4nXdQhQpmEJj92f2BA

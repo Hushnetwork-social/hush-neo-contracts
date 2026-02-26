@@ -1,0 +1,141 @@
+/* ═══════════════════════════════════════════════════════════════
+   FORGE — EMBER COLOR PALETTE
+   Created: February 18, 2026
+   Theme: Blacksmith, Fire, Metal Forging
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────── */
+/* CSS VARIABLES (Recommended for use in projects)                */
+/* ─────────────────────────────────────────────────────────────── */
+
+:root {
+    /* Primary Colors */
+    --forge-bg-primary: #1A1A1A;          /* Charcoal black */
+    --forge-color-primary: #FF6B35;       /* Burnt orange */
+    --forge-color-secondary: #D84315;     /* Deep ember */
+    --forge-color-accent: #FFA726;        /* Amber glow */
+    
+    /* Text Colors */
+    --forge-text-primary: #F5F5F5;        /* Off-white */
+    --forge-text-secondary: rgba(245, 245, 245, 0.8);  /* Slightly transparent white */
+    --forge-text-muted: rgba(245, 245, 245, 0.5);      /* Muted white */
+    
+    /* Accent & Highlights */
+    --forge-highlight: #FFAB91;           /* Soft coral */
+    
+    /* Backgrounds */
+    --forge-bg-card: #242424;             /* Card background (slightly lighter) */
+    --forge-bg-gradient-start: #1A1A1A;   /* Gradient start */
+    --forge-bg-gradient-end: #2A1810;     /* Gradient end (warm tint) */
+    
+    /* Borders & Dividers */
+    --forge-border-subtle: rgba(255, 107, 53, 0.1);   /* Subtle border */
+    --forge-border-medium: rgba(255, 107, 53, 0.2);   /* Medium border */
+    --forge-border-strong: rgba(255, 107, 53, 0.4);   /* Strong border */
+    
+    /* Shadows & Glows */
+    --forge-shadow-primary: 0 10px 30px rgba(255, 107, 53, 0.4);
+    --forge-shadow-accent: 0 15px 40px rgba(255, 167, 38, 0.6);
+    --forge-glow-text: 0 0 20px rgba(255, 107, 53, 0.5);
+}
+
+
+/* ─────────────────────────────────────────────────────────────── */
+/* TAILWIND-STYLE UTILITY CLASSES                                  */
+/* ─────────────────────────────────────────────────────────────── */
+
+.bg-forge-primary { background-color: #1A1A1A; }
+.bg-forge-card { background-color: #242424; }
+.bg-forge-gradient { 
+    background: linear-gradient(135deg, #1A1A1A 0%, #2A1810 100%); 
+}
+
+.text-forge-primary { color: #FF6B35; }
+.text-forge-secondary { color: #D84315; }
+.text-forge-accent { color: #FFA726; }
+.text-forge-highlight { color: #FFAB91; }
+.text-forge-white { color: #F5F5F5; }
+
+.border-forge-primary { border-color: #FF6B35; }
+.border-forge-secondary { border-color: #D84315; }
+
+.shadow-forge { box-shadow: 0 10px 30px rgba(255, 107, 53, 0.4); }
+.glow-forge { text-shadow: 0 0 20px rgba(255, 107, 53, 0.5); }
+
+
+/* ─────────────────────────────────────────────────────────────── */
+/* GRADIENT PRESETS                                                */
+/* ─────────────────────────────────────────────────────────────── */
+
+.gradient-forge-primary {
+    background: linear-gradient(135deg, #D84315 0%, #FF6B35 100%);
+}
+
+.gradient-forge-text {
+    background: linear-gradient(135deg, #FF6B35 0%, #FFA726 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.gradient-forge-hero {
+    background: linear-gradient(135deg, rgba(216, 67, 21, 0.1) 0%, rgba(255, 107, 53, 0.05) 100%);
+}
+
+
+/* ─────────────────────────────────────────────────────────────── */
+/* HEX COLOR REFERENCE (For Design Tools)                          */
+/* ─────────────────────────────────────────────────────────────── */
+
+/*
+CHARCOAL BLACK:    #1A1A1A
+BURNT ORANGE:      #FF6B35
+DEEP EMBER:        #D84315
+AMBER GLOW:        #FFA726
+OFF-WHITE:         #F5F5F5
+SOFT CORAL:        #FFAB91
+CARD BACKGROUND:   #242424
+GRADIENT END:      #2A1810
+*/
+
+
+/* ─────────────────────────────────────────────────────────────── */
+/* RGB VALUES (For Transparency)                                   */
+/* ─────────────────────────────────────────────────────────────── */
+
+/*
+CHARCOAL BLACK:    rgb(26, 26, 26)
+BURNT ORANGE:      rgb(255, 107, 53)
+DEEP EMBER:        rgb(216, 67, 21)
+AMBER GLOW:        rgb(255, 167, 38)
+OFF-WHITE:         rgb(245, 245, 245)
+SOFT CORAL:        rgb(255, 171, 145)
+*/
+
+
+/* ─────────────────────────────────────────────────────────────── */
+/* USAGE EXAMPLES                                                   */
+/* ─────────────────────────────────────────────────────────────── */
+
+/*
+BUTTONS:
+  Primary:   background: var(--forge-color-primary);
+             box-shadow: var(--forge-shadow-primary);
+  
+  Secondary: border: 2px solid var(--forge-color-primary);
+             color: var(--forge-color-primary);
+
+TEXT:
+  Headings:  color: var(--forge-color-accent);
+  Body:      color: var(--forge-text-primary);
+  Muted:     color: var(--forge-text-muted);
+
+CARDS:
+  Background: var(--forge-bg-card)
+  Border:     1px solid var(--forge-border-medium)
+  Hover:      box-shadow: var(--forge-shadow-primary)
+
+GLOW EFFECTS:
+  Logo:      text-shadow: var(--forge-glow-text);
+  Badges:    box-shadow: 0 0 15px rgba(216, 67, 21, 0.4);
+*/

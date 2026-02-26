@@ -1,4 +1,5 @@
 #nullable enable
+using Neo;
 using Neo.SmartContract.Testing;
 using Reqnroll;
 using TokenTemplate.Tests.Support;
@@ -43,6 +44,9 @@ public class ScenarioHooks
     {
         _context.Contract?.Dispose();
         _context.Contract = null;
+        _context.Factory?.Dispose();
+        _context.Factory = null;
+        _context.LastCreatedTokenHash = UInt160.Zero;
         _context.SpikeContract?.Dispose();
         _context.SpikeContract = null;
         _context.DeployedToken?.Dispose();
