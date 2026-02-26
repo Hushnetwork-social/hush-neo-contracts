@@ -34,9 +34,9 @@ public class TokenFactorySteps
     private static readonly string ArtifactsPath =
         Path.Combine(AppContext.BaseDirectory, "artifacts");
 
-    // Default valid token params for shortcut steps (6 elements: name, symbol, supply, decimals, mode, imageUrl)
+    // Default valid token params for shortcut steps (7 elements: name, symbol, supply, decimals, mode, imageUrl, creatorFeeRate)
     private static readonly object[] ValidTokenData =
-        new object[] { "ValidToken", "VLD", (BigInteger)1000, (BigInteger)8, "community", "" };
+        new object[] { "ValidToken", "VLD", (BigInteger)1000, (BigInteger)8, "community", "", (BigInteger)0 };
 
     private readonly TestContext _context;
 
@@ -127,7 +127,7 @@ public class TokenFactorySteps
         {
             var tokenData = new object[]
             {
-                $"Token{i}", $"TK{i}", (BigInteger)(1000 + i), (BigInteger)8, "community", ""
+                $"Token{i}", $"TK{i}", (BigInteger)(1000 + i), (BigInteger)8, "community", "", (BigInteger)0
             };
             SimulateGasPayment(wallet, 1_500_000_000, tokenData);
             Assert.That(_context.LastException, Is.Null,
@@ -165,7 +165,7 @@ public class TokenFactorySteps
     {
         var tokenData = new object[]
         {
-            name, symbol, (BigInteger)supply, (BigInteger)decimals, mode, ""
+            name, symbol, (BigInteger)supply, (BigInteger)decimals, mode, "", (BigInteger)0
         };
         SimulateGasPayment(wallet, (BigInteger)amount, tokenData);
     }
@@ -183,7 +183,7 @@ public class TokenFactorySteps
     {
         var tokenData = new object[]
         {
-            name, symbol, (BigInteger)supply, (BigInteger)decimals, mode, imageUrl
+            name, symbol, (BigInteger)supply, (BigInteger)decimals, mode, imageUrl, (BigInteger)0
         };
         SimulateGasPayment(wallet, (BigInteger)amount, tokenData);
     }

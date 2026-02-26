@@ -81,19 +81,36 @@ public record DeployParams
     public BigInteger InitialSupply { get; init; } = 0;
     public BigInteger Decimals { get; init; } = 8;
     public UInt160 Owner { get; init; } = UInt160.Zero;
-    public BigInteger Mintable { get; init; } = 0;      // 1=true, 0=false
+    public BigInteger Mintable { get; init; } = 1;         // FEAT-078: default true (factory-gated)
     public BigInteger MaxSupply { get; init; } = 0;
-    public BigInteger Upgradeable { get; init; } = 0;   // 1=true, 0=false
+    public BigInteger Upgradeable { get; init; } = 0;      // 1=true, 0=false
     public string MetadataUri { get; init; } = "";
-    public BigInteger Pausable { get; init; } = 0;      // 1=true, 0=false
+    public BigInteger Pausable { get; init; } = 0;         // 1=true, 0=false
+    /// <summary>
+    /// FEAT-078: Address of the factory authorized to call lifecycle setters.
+    /// Defaults to UInt160.Zero; ToDeployArray() falls back to Owner when zero
+    /// so unit tests that deploy the token directly still work.
+    /// </summary>
+    public UInt160 AuthorizedFactory { get; init; } = UInt160.Zero;
+    public BigInteger PlatformFeeRate { get; init; } = 0;  // FEAT-078: datoshi per transfer to factory
+    public BigInteger CreatorFeeRate { get; init; } = 0;   // FEAT-078: datoshi per transfer to creator
 
     /// <summary>
-    /// Converts to the object[] format expected by TokenTemplate._deploy().
-    /// Order: name, symbol, initialSupply, decimals, owner, mintable, maxSupply, upgradeable, metadataUri, pausable
+    /// Converts to the 13-element object[] expected by TokenTemplate._deploy().
+    /// If AuthorizedFactory is zero, falls back to Owner (enables unit tests to
+    /// deploy directly without a factory contract).
     /// </summary>
-    public object[] ToDeployArray() => new object[]
+    public object[] ToDeployArray()
     {
-        Name, Symbol, InitialSupply, Decimals, Owner,
-        Mintable, MaxSupply, Upgradeable, MetadataUri, Pausable
-    };
+        UInt160 factory = (AuthorizedFactory == UInt160.Zero || AuthorizedFactory == null)
+            ? Owner
+            : AuthorizedFactory;
+
+        return new object[]
+        {
+            Name, Symbol, InitialSupply, Decimals, Owner,
+            Mintable, MaxSupply, Upgradeable, MetadataUri, Pausable,
+            factory, PlatformFeeRate, CreatorFeeRate
+        };
+    }
 }

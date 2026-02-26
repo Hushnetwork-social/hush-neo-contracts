@@ -33,8 +33,12 @@ namespace Neo.SmartContract.Template
         private const byte Prefix_Locked      = 0x16;
         private const byte Prefix_Pausable    = 0x17;
         private const byte Prefix_Paused      = 0x18;
-        private const byte Prefix_MetadataUri = 0x19;
-        private const byte Prefix_Owner       = 0xff;
+        private const byte Prefix_MetadataUri       = 0x19;
+        private const byte Prefix_AuthorizedFactory = 0x1a; // FEAT-078: UInt160 — factory allowed to call setters
+        private const byte Prefix_PlatformFeeRate   = 0x1b; // FEAT-078: BigInteger (datoshi) — per-transfer fee to factory
+        private const byte Prefix_CreatorFeeRate    = 0x1c; // FEAT-078: BigInteger (datoshi) — per-transfer fee to creator
+        private const byte Prefix_BurnRate          = 0x1d; // FEAT-078: BigInteger (basis points 0–1000) — tokens burned per transfer
+        private const byte Prefix_Owner             = 0xff;
 
         // ── Private storage helpers ───────────────────────────────────────────
         // StorageGet*/StorageSet* are the raw read/write layer.
@@ -127,6 +131,26 @@ namespace Neo.SmartContract.Template
         private static void StorageSetMetadataUri(string value) =>
             Storage.Put(new[] { Prefix_MetadataUri }, value);
 
+        private static UInt160 StorageGetAuthorizedFactory() =>
+            (UInt160)Storage.Get(new[] { Prefix_AuthorizedFactory });
+        private static void StorageSetAuthorizedFactory(UInt160 value) =>
+            Storage.Put(new[] { Prefix_AuthorizedFactory }, value);
+
+        private static BigInteger StorageGetPlatformFeeRate() =>
+            (BigInteger)Storage.Get(new[] { Prefix_PlatformFeeRate });
+        private static void StorageSetPlatformFeeRate(BigInteger value) =>
+            Storage.Put(new[] { Prefix_PlatformFeeRate }, value);
+
+        private static BigInteger StorageGetCreatorFeeRate() =>
+            (BigInteger)Storage.Get(new[] { Prefix_CreatorFeeRate });
+        private static void StorageSetCreatorFeeRate(BigInteger value) =>
+            Storage.Put(new[] { Prefix_CreatorFeeRate }, value);
+
+        private static BigInteger StorageGetBurnRate() =>
+            (BigInteger)Storage.Get(new[] { Prefix_BurnRate });
+        private static void StorageSetBurnRate(BigInteger value) =>
+            Storage.Put(new[] { Prefix_BurnRate }, value);
+
         private static UInt160 StorageGetOwner() =>
             (UInt160)Storage.Get(new[] { Prefix_Owner });
         private static void StorageSetOwner(UInt160 value) =>
@@ -199,6 +223,18 @@ namespace Neo.SmartContract.Template
 
         [Safe]
         public static string getMetadataUri() => StorageGetMetadataUri();
+
+        [Safe]
+        public static UInt160 getAuthorizedFactory() => StorageGetAuthorizedFactory();
+
+        [Safe]
+        public static BigInteger getPlatformFeeRate() => StorageGetPlatformFeeRate();
+
+        [Safe]
+        public static BigInteger getCreatorFeeRate() => StorageGetCreatorFeeRate();
+
+        [Safe]
+        public static BigInteger getBurnRate() => StorageGetBurnRate();
 
         // ── Pausable controls ─────────────────────────────────────────────────
         // setPausable is a property-level change — requires upgradeable=true AND !locked.
@@ -284,34 +320,40 @@ namespace Neo.SmartContract.Template
         [Safe]
         public static bool verify() => IsOwner();
 
-        // Deploy parameters (object[] of length 10, in order):
-        //   [0] name         string   — non-empty display name
-        //   [1] symbol       string   — non-empty ticker (e.g. "HCT")
-        //   [2] initialSupply BigInteger — >= 0; minted to owner on deploy
-        //   [3] decimals     byte     — 0-18
-        //   [4] owner        UInt160  — valid, non-zero
-        //   [5] mintable     bool     — stored as BigInteger 1/0
-        //   [6] maxSupply    BigInteger — 0 = uncapped; ignored if !mintable
-        //   [7] upgradeable  bool     — stored as BigInteger 1/0
-        //   [8] metadataUri  string   — IPFS URI; may be empty
-        //   [9] pausable     bool     — stored as BigInteger 1/0
+        // Deploy parameters (object[] of length 13, in order):
+        //   [0]  name              string     — non-empty display name
+        //   [1]  symbol            string     — non-empty ticker (e.g. "HCT")
+        //   [2]  initialSupply     BigInteger — >= 0; minted to owner on deploy
+        //   [3]  decimals          byte       — 0-18
+        //   [4]  owner             UInt160    — valid, non-zero
+        //   [5]  mintable          BigInteger — 1/0 (always 1 for FEAT-078 tokens)
+        //   [6]  maxSupply         BigInteger — 0 = uncapped
+        //   [7]  upgradeable       BigInteger — 1/0
+        //   [8]  metadataUri       string     — IPFS URI; may be empty
+        //   [9]  pausable          BigInteger — 1/0
+        //   [10] authorizedFactory UInt160    — valid, non-zero; only this contract may call setters
+        //   [11] platformFeeRate   BigInteger — 0–10,000,000 datoshi per transfer to factory
+        //   [12] creatorFeeRate    BigInteger — 0–5,000,000 datoshi per transfer to creator
         public static void _deploy(object data, bool update)
         {
             if (update) return;
 
             object[] args = (object[])data;
-            ExecutionEngine.Assert(args.Length == 10, "Expected 10 deploy parameters");
+            ExecutionEngine.Assert(args.Length == 13, "Expected 13 deploy parameters");
 
-            string name          = (string)args[0];
-            string symbol        = (string)args[1];
-            BigInteger initialSupply = (BigInteger)args[2];
-            byte decimals        = (byte)(BigInteger)args[3];
-            UInt160 owner        = (UInt160)args[4];
-            bool mintable        = (BigInteger)args[5] != 0;
-            BigInteger maxSupply = (BigInteger)args[6];
-            bool upgradeable     = (BigInteger)args[7] != 0;
-            string metadataUri   = (string)args[8];
-            bool pausable        = (BigInteger)args[9] != 0;
+            string name                   = (string)args[0];
+            string symbol                 = (string)args[1];
+            BigInteger initialSupply      = (BigInteger)args[2];
+            byte decimals                 = (byte)(BigInteger)args[3];
+            UInt160 owner                 = (UInt160)args[4];
+            bool mintable                 = (BigInteger)args[5] != 0;
+            BigInteger maxSupply          = (BigInteger)args[6];
+            bool upgradeable              = (BigInteger)args[7] != 0;
+            string metadataUri            = (string)args[8];
+            bool pausable                 = (BigInteger)args[9] != 0;
+            UInt160 authorizedFactory     = (UInt160)args[10];
+            BigInteger platformFeeRate    = (BigInteger)args[11];
+            BigInteger creatorFeeRate     = (BigInteger)args[12];
 
             ExecutionEngine.Assert(name.Length > 0, "Name must not be empty");
             ExecutionEngine.Assert(symbol.Length > 0, "Symbol must not be empty");
@@ -321,6 +363,9 @@ namespace Neo.SmartContract.Template
             ExecutionEngine.Assert(maxSupply >= 0, "MaxSupply must be >= 0");
             if (maxSupply > 0)
                 ExecutionEngine.Assert(initialSupply <= maxSupply, "InitialSupply must not exceed MaxSupply");
+            ExecutionEngine.Assert(authorizedFactory.IsValid && !authorizedFactory.IsZero, "Invalid factory address");
+            ExecutionEngine.Assert(platformFeeRate >= 0 && platformFeeRate <= 10_000_000, "PlatformFeeRate exceeds maximum");
+            ExecutionEngine.Assert(creatorFeeRate >= 0 && creatorFeeRate <= 5_000_000, "CreatorFeeRate exceeds maximum");
 
             StorageSetName(name);
             StorageSetSymbol(symbol);
@@ -330,7 +375,10 @@ namespace Neo.SmartContract.Template
             StorageSetUpgradeable(upgradeable);
             StorageSetPausable(pausable);
             StorageSetMetadataUri(metadataUri);
-            // locked=false and paused=false: storage default (key absent = false)
+            StorageSetAuthorizedFactory(authorizedFactory);
+            StorageSetPlatformFeeRate(platformFeeRate);
+            StorageSetCreatorFeeRate(creatorFeeRate);
+            // locked=false, paused=false, burnRate=0: storage default (key absent = false/zero)
 
             StorageSetOwner(owner);
             OnOwnerChanged(null, owner);

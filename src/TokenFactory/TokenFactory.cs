@@ -30,6 +30,8 @@ namespace HushNetwork.Contracts
         private const byte Prefix_PremiumTiersEnabled = 0xe1; // BigInteger 0/1: premium tiers flag
         private const byte Prefix_Treasury            = 0xe2; // UInt160: treasury address
         private const byte Prefix_Paused              = 0xe3; // BigInteger 0/1: factory paused flag
+        private const byte Prefix_UpdateFee           = 0xe4; // FEAT-078: BigInteger (datoshi) — fee to call lifecycle setters via factory
+        private const byte Prefix_PlatformFeeRate     = 0xe5; // FEAT-078: BigInteger (datoshi) — per-transfer platform fee passed to deployed tokens
 
         // ── Owner storage helpers ─────────────────────────────────────────────
 
@@ -102,6 +104,24 @@ namespace HushNetwork.Contracts
                 Storage.Delete(new[] { Prefix_Paused });
         }
 
+        private static BigInteger StorageGetUpdateFee()
+        {
+            ByteString raw = Storage.Get(new[] { Prefix_UpdateFee });
+            return raw is null ? 50_000_000 : (BigInteger)raw;
+        }
+
+        private static void StorageSetUpdateFee(BigInteger value) =>
+            Storage.Put(new[] { Prefix_UpdateFee }, value);
+
+        private static BigInteger StorageGetPlatformFeeRate()
+        {
+            ByteString raw = Storage.Get(new[] { Prefix_PlatformFeeRate });
+            return raw is null ? 0 : (BigInteger)raw;
+        }
+
+        private static void StorageSetPlatformFeeRate(BigInteger value) =>
+            Storage.Put(new[] { Prefix_PlatformFeeRate }, value);
+
         // ── Token count helpers ───────────────────────────────────────────────
 
         private static BigInteger StorageGetTotalTokenCount() =>
@@ -126,7 +146,7 @@ namespace HushNetwork.Contracts
         }
 
         // ── TokenInfo storage helpers ─────────────────────────────────────────
-        // TokenInfo format: object[] { symbol, creator, supply, mode, tier, createdAt, imageUrl }
+        // TokenInfo format: object[] { symbol, creator, supply, mode, tier, createdAt, imageUrl, burnRate, maxSupply, locked }
         // Key: [0x10] + contractHash (20 bytes)
 
         private static object[] StorageGetTokenInfo(UInt160 contractHash)
@@ -223,15 +243,19 @@ namespace HushNetwork.Contracts
             // Guard 4: Sufficient fee
             ExecutionEngine.Assert(amount >= StorageGetMinFee(), "Insufficient fee");
 
-            // Guard 5: Data format — expect object[]{name, symbol, supply, decimals, mode, imageUrl}
+            // Guard 5: Data format — expect object[]{name, symbol, supply, decimals, mode, imageUrl, creatorFeeRate}
             object[] tokenData = (object[])data;
-            ExecutionEngine.Assert(tokenData.Length == 6, "Expected 6 data elements");
+            ExecutionEngine.Assert(tokenData.Length == 7, "Expected 7 data elements");
 
             // Guard 6: Mode check — only "community" supported in FEAT-070
             string mode = (string)tokenData[4];
             ExecutionEngine.Assert(mode == "community", "Unsupported mode");
 
-            string imageUrl = (string)tokenData[5];
+            string imageUrl             = (string)tokenData[5];
+            BigInteger creatorFeeRate   = (BigInteger)tokenData[6];
+
+            // Validate creatorFeeRate before passing to token
+            ExecutionEngine.Assert(creatorFeeRate >= 0 && creatorFeeRate <= 5_000_000, "creatorFeeRate exceeds maximum");
 
             // Extract token parameters from payment data
             string name         = (string)tokenData[0];
@@ -239,20 +263,23 @@ namespace HushNetwork.Contracts
             BigInteger supply   = (BigInteger)tokenData[2];
             BigInteger decimals = (BigInteger)tokenData[3];
 
-            // Build 10-element deploy params for TokenTemplate._deploy()
-            // Bool params (mintable, upgradeable, pausable) MUST be BigInteger 0, NOT C# bool false
+            // Build 13-element deploy params for TokenTemplate._deploy()
+            // Bool params (mintable, upgradeable, pausable) MUST be BigInteger 0/1, NOT C# bool
             object[] tokenParams = new object[]
             {
-                name,           // [0] name
-                symbol,         // [1] symbol
-                supply,         // [2] initialSupply
-                decimals,       // [3] decimals (TokenTemplate casts to byte)
-                from,           // [4] owner — payment sender becomes token owner
-                (BigInteger)0,  // [5] mintable = false
-                (BigInteger)0,  // [6] maxSupply = uncapped
-                (BigInteger)0,  // [7] upgradeable = false
-                imageUrl,       // [8] metadataUri — user-supplied image/icon URL
-                (BigInteger)0,  // [9] pausable = false
+                name,                                   // [0] name
+                symbol,                                 // [1] symbol
+                supply,                                 // [2] initialSupply
+                decimals,                               // [3] decimals (TokenTemplate casts to byte)
+                from,                                   // [4] owner — payment sender becomes token owner
+                (BigInteger)1,                          // [5] mintable = true (FEAT-078: factory controls minting)
+                (BigInteger)0,                          // [6] maxSupply = uncapped
+                (BigInteger)0,                          // [7] upgradeable = false
+                imageUrl,                               // [8] metadataUri — user-supplied image/icon URL
+                (BigInteger)0,                          // [9] pausable = false
+                Runtime.ExecutingScriptHash,            // [10] authorizedFactory — this factory is the authorized caller
+                StorageGetPlatformFeeRate(),            // [11] platformFeeRate — current factory-level platform fee
+                creatorFeeRate,                         // [12] creatorFeeRate — per-transfer fee to token creator
             };
 
             // Deploy the TokenTemplate instance.
@@ -281,6 +308,9 @@ namespace HushNetwork.Contracts
                 "standard",                 // [4] tier
                 (BigInteger)Runtime.Time,   // [5] createdAt (block timestamp)
                 imageUrl,                   // [6] imageUrl
+                (BigInteger)0,              // [7] burnRate (basis points) — 0 at creation
+                (BigInteger)0,              // [8] maxSupply — 0 = uncapped (community mode)
+                (BigInteger)0,              // [9] locked — 0 = unlocked at creation
             };
             StorageSetTokenInfo(contractHash, tokenInfo);
 
@@ -427,7 +457,9 @@ namespace HushNetwork.Contracts
             ExecutionEngine.Assert(initialOwner.IsValid && !initialOwner.IsZero, "owner must exist");
 
             StorageSetOwner(initialOwner);
-            StorageSetMinFee(1_500_000_000); // Default: 15 GAS (covers ~10.17 GAS deployment + margin)
+            StorageSetMinFee(1_500_000_000);    // Default: 15 GAS (covers ~10.17 GAS deployment + margin)
+            StorageSetUpdateFee(50_000_000);    // FEAT-078 default: 0.5 GAS per lifecycle setter call
+            StorageSetPlatformFeeRate(0);       // FEAT-078 default: no platform fee on transfers
             OnSetOwner(null, initialOwner);
         }
 
