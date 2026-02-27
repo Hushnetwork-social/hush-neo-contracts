@@ -23,6 +23,7 @@ namespace HushNetwork.Contracts
         private const byte Prefix_GlobalTokenList     = 0x02; // UInt160 per-index: [0x02]+index
         private const byte Prefix_TokenInfo           = 0x10; // byte[] serialized: [0x10]+contractHash
         private const byte Prefix_CreatorIndex        = 0x20; // compound: [0x20]+creator+[0x00/0x01]+index
+        private const byte Prefix_ModeParams          = 0x30; // FEAT-078: serialized object[]: [0x30]+contractHash
         private const byte Prefix_Owner               = 0xff; // UInt160: factory owner
         private const byte Prefix_NefBytes            = 0xf0; // ByteString: stored TokenTemplate NEF
         private const byte Prefix_Manifest            = 0xf1; // string: stored TokenTemplate manifest JSON
@@ -30,6 +31,8 @@ namespace HushNetwork.Contracts
         private const byte Prefix_PremiumTiersEnabled = 0xe1; // BigInteger 0/1: premium tiers flag
         private const byte Prefix_Treasury            = 0xe2; // UInt160: treasury address
         private const byte Prefix_Paused              = 0xe3; // BigInteger 0/1: factory paused flag
+        private const byte Prefix_UpdateFee           = 0xe4; // FEAT-078: BigInteger (datoshi) — fee to call lifecycle setters via factory
+        private const byte Prefix_PlatformFeeRate     = 0xe5; // FEAT-078: BigInteger (datoshi) — per-transfer platform fee passed to deployed tokens
 
         // ── Owner storage helpers ─────────────────────────────────────────────
 
@@ -102,6 +105,24 @@ namespace HushNetwork.Contracts
                 Storage.Delete(new[] { Prefix_Paused });
         }
 
+        private static BigInteger StorageGetUpdateFee()
+        {
+            ByteString raw = Storage.Get(new[] { Prefix_UpdateFee });
+            return raw is null ? 50_000_000 : (BigInteger)raw;
+        }
+
+        private static void StorageSetUpdateFee(BigInteger value) =>
+            Storage.Put(new[] { Prefix_UpdateFee }, value);
+
+        private static BigInteger StorageGetPlatformFeeRate()
+        {
+            ByteString raw = Storage.Get(new[] { Prefix_PlatformFeeRate });
+            return raw is null ? 0 : (BigInteger)raw;
+        }
+
+        private static void StorageSetPlatformFeeRate(BigInteger value) =>
+            Storage.Put(new[] { Prefix_PlatformFeeRate }, value);
+
         // ── Token count helpers ───────────────────────────────────────────────
 
         private static BigInteger StorageGetTotalTokenCount() =>
@@ -126,7 +147,7 @@ namespace HushNetwork.Contracts
         }
 
         // ── TokenInfo storage helpers ─────────────────────────────────────────
-        // TokenInfo format: object[] { symbol, creator, supply, mode, tier, createdAt, imageUrl }
+        // TokenInfo format: object[] { symbol, creator, supply, mode, tier, createdAt, imageUrl, burnRate, maxSupply, locked }
         // Key: [0x10] + contractHash (20 bytes)
 
         private static object[] StorageGetTokenInfo(UInt160 contractHash)
@@ -140,6 +161,25 @@ namespace HushNetwork.Contracts
         {
             ByteString key = (ByteString)new byte[] { Prefix_TokenInfo } + (ByteString)contractHash;
             Storage.Put(key, StdLib.Serialize(info));
+        }
+
+        // ── ModeParams storage helpers (FEAT-078) ─────────────────────────────
+        // Key: [0x30] + contractHash (20 bytes)
+        // Stores mode-specific parameters (e.g., speculation thresholds, crowdfunding targets).
+        // Kept in factory registry; no router calls in FEAT-078. Router calls added via
+        // factory upgrade in FEAT-073/074 — factory redeploy must then call AuthorizeAllTokens().
+
+        private static object[] StorageGetModeParams(UInt160 contractHash)
+        {
+            ByteString key = (ByteString)new byte[] { Prefix_ModeParams } + (ByteString)contractHash;
+            ByteString raw = Storage.Get(key);
+            return raw is null ? null : (object[])StdLib.Deserialize(raw);
+        }
+
+        private static void StorageSetModeParams(UInt160 contractHash, object[] value)
+        {
+            ByteString key = (ByteString)new byte[] { Prefix_ModeParams } + (ByteString)contractHash;
+            Storage.Put(key, StdLib.Serialize(value));
         }
 
         // ── Per-creator index helpers ─────────────────────────────────────────
@@ -180,7 +220,7 @@ namespace HushNetwork.Contracts
             Storage.Put(key, hash);
         }
 
-        // ── Registry append helpers (Phase 3) ────────────────────────────────
+        // ── Registry append helpers ────────────────────────────────────────────
 
         private static void AppendGlobalToken(UInt160 contractHash)
         {
@@ -196,22 +236,58 @@ namespace HushNetwork.Contracts
             StorageSetCreatorTokenCount(creator, index + 1);
         }
 
-        // ── TokenCreated event ────────────────────────────────────────────────
-        // args: contractHash, creator, symbol, supply, mode, tier
+        // ── Events ───────────────────────────────────────────────────────────
 
         [DisplayName("TokenCreated")]
         public static event Action<UInt160, UInt160, string, BigInteger, string, string> OnTokenCreated;
+
+        // FEAT-078 lifecycle events
+
+        [DisplayName("TokenMinted")]
+        public static event Action<UInt160, UInt160, BigInteger, BigInteger> OnTokenMinted;
+
+        [DisplayName("TokenBurnRateSet")]
+        public static event Action<UInt160, BigInteger> OnTokenBurnRateSet;
+
+        [DisplayName("TokenMaxSupplySet")]
+        public static event Action<UInt160, BigInteger> OnTokenMaxSupplySet;
+
+        [DisplayName("TokenMetadataUpdated")]
+        public static event Action<UInt160, string> OnTokenMetadataUpdated;
+
+        [DisplayName("TokenCreatorFeeSet")]
+        public static event Action<UInt160, BigInteger> OnTokenCreatorFeeSet;
+
+        [DisplayName("TokenModeChanged")]
+        public static event Action<UInt160, string, string> OnTokenModeChanged;
+
+        [DisplayName("TokenLocked")]
+        public static event Action<UInt160, UInt160, BigInteger> OnTokenLocked;
+
+        [DisplayName("TokensMigrated")]
+        public static event Action<UInt160, BigInteger, BigInteger> OnTokensMigrated;
+
+        [DisplayName("PlatformFeeRateUpdated")]
+        public static event Action<BigInteger, BigInteger, BigInteger> OnPlatformFeeRateUpdated;
 
         // ── onNEP17Payment — factory entry point ──────────────────────────────
         // Triggered by GAS token transfer to this contract.
         // Validates payment, deploys TokenTemplate, writes registry, emits event.
         // On any guard failure, throw → NeoVM aborts the TX → GAS auto-refunded.
+        //
+        // FEAT-078: GAS payments with null data are fee accumulation receipts (update fees
+        // and platform fees collected from lifecycle methods and token transfers). These
+        // must be accepted silently — they are not token creation requests.
 
         [DisplayName("onNEP17Payment")]
         public static void OnNEP17Payment(UInt160 from, BigInteger amount, object data)
         {
             // Guard 1: Only GAS accepted
             ExecutionEngine.Assert(Runtime.CallingScriptHash == GAS.Hash, "Only GAS accepted");
+
+            // FEAT-078: Early return for fee accumulation payments (null data = not a creation request).
+            // Update fees from lifecycle methods and platform fees from token transfers arrive here.
+            if (data is null) return;
 
             // Guard 2: Factory not paused
             ExecutionEngine.Assert(!StorageGetPaused(), "Factory is paused");
@@ -223,15 +299,19 @@ namespace HushNetwork.Contracts
             // Guard 4: Sufficient fee
             ExecutionEngine.Assert(amount >= StorageGetMinFee(), "Insufficient fee");
 
-            // Guard 5: Data format — expect object[]{name, symbol, supply, decimals, mode, imageUrl}
+            // Guard 5: Data format — expect object[]{name, symbol, supply, decimals, mode, imageUrl, creatorFeeRate}
             object[] tokenData = (object[])data;
-            ExecutionEngine.Assert(tokenData.Length == 6, "Expected 6 data elements");
+            ExecutionEngine.Assert(tokenData.Length == 7, "Expected 7 data elements");
 
             // Guard 6: Mode check — only "community" supported in FEAT-070
             string mode = (string)tokenData[4];
             ExecutionEngine.Assert(mode == "community", "Unsupported mode");
 
-            string imageUrl = (string)tokenData[5];
+            string imageUrl             = (string)tokenData[5];
+            BigInteger creatorFeeRate   = (BigInteger)tokenData[6];
+
+            // Validate creatorFeeRate before passing to token
+            ExecutionEngine.Assert(creatorFeeRate >= 0 && creatorFeeRate <= 5_000_000, "creatorFeeRate exceeds maximum");
 
             // Extract token parameters from payment data
             string name         = (string)tokenData[0];
@@ -239,20 +319,23 @@ namespace HushNetwork.Contracts
             BigInteger supply   = (BigInteger)tokenData[2];
             BigInteger decimals = (BigInteger)tokenData[3];
 
-            // Build 10-element deploy params for TokenTemplate._deploy()
-            // Bool params (mintable, upgradeable, pausable) MUST be BigInteger 0, NOT C# bool false
+            // Build 13-element deploy params for TokenTemplate._deploy()
+            // Bool params (mintable, upgradeable, pausable) MUST be BigInteger 0/1, NOT C# bool
             object[] tokenParams = new object[]
             {
-                name,           // [0] name
-                symbol,         // [1] symbol
-                supply,         // [2] initialSupply
-                decimals,       // [3] decimals (TokenTemplate casts to byte)
-                from,           // [4] owner — payment sender becomes token owner
-                (BigInteger)0,  // [5] mintable = false
-                (BigInteger)0,  // [6] maxSupply = uncapped
-                (BigInteger)0,  // [7] upgradeable = false
-                imageUrl,       // [8] metadataUri — user-supplied image/icon URL
-                (BigInteger)0,  // [9] pausable = false
+                name,                                   // [0] name
+                symbol,                                 // [1] symbol
+                supply,                                 // [2] initialSupply
+                decimals,                               // [3] decimals (TokenTemplate casts to byte)
+                from,                                   // [4] owner — payment sender becomes token owner
+                (BigInteger)1,                          // [5] mintable = true (FEAT-078: factory controls minting)
+                (BigInteger)0,                          // [6] maxSupply = uncapped
+                (BigInteger)0,                          // [7] upgradeable = false
+                imageUrl,                               // [8] metadataUri — user-supplied image/icon URL
+                (BigInteger)0,                          // [9] pausable = false
+                Runtime.ExecutingScriptHash,            // [10] authorizedFactory — this factory is the authorized caller
+                StorageGetPlatformFeeRate(),            // [11] platformFeeRate — current factory-level platform fee
+                creatorFeeRate,                         // [12] creatorFeeRate — per-transfer fee to token creator
             };
 
             // Deploy the TokenTemplate instance.
@@ -281,6 +364,9 @@ namespace HushNetwork.Contracts
                 "standard",                 // [4] tier
                 (BigInteger)Runtime.Time,   // [5] createdAt (block timestamp)
                 imageUrl,                   // [6] imageUrl
+                (BigInteger)0,              // [7] burnRate (basis points) — 0 at creation
+                (BigInteger)0,              // [8] maxSupply — 0 = uncapped (community mode)
+                (BigInteger)0,              // [9] locked — 0 = unlocked at creation
             };
             StorageSetTokenInfo(contractHash, tokenInfo);
 
@@ -289,7 +375,6 @@ namespace HushNetwork.Contracts
         }
 
         // ── Public owner management ───────────────────────────────────────────
-        // Full public API (getTokenCount, getToken, etc.) implemented in Phase 4.
 
         [Safe]
         public static UInt160 GetOwner()
@@ -314,7 +399,7 @@ namespace HushNetwork.Contracts
             OnSetOwner(previous, newOwner);
         }
 
-        // ── Registry query API (Phase 4) ─────────────────────────────────────
+        // ── Registry query API ────────────────────────────────────────────────
 
         [Safe]
         public static BigInteger GetTokenCount() =>
@@ -365,9 +450,19 @@ namespace HushNetwork.Contracts
         public static bool GetPremiumTiersEnabled() =>
             StorageGetPremiumTiersEnabled();
 
-        // ── Admin functions (Phase 4) ─────────────────────────────────────────
-        // All admin methods begin with: Assert(Runtime.CheckWitness(GetOwner()), "Unauthorized")
-        // Note: SetOwner() is implemented in Phase 2 (public owner management above).
+        [Safe]
+        public static BigInteger GetUpdateFee() =>
+            StorageGetUpdateFee();
+
+        [Safe]
+        public static BigInteger GetPlatformFeeRate() =>
+            StorageGetPlatformFeeRate();
+
+        [Safe]
+        public static object[] GetModeParams(UInt160 tokenHash) =>
+            StorageGetModeParams(tokenHash);
+
+        // ── Admin functions ───────────────────────────────────────────────────
 
         public static void SetNefAndManifest(ByteString nef, string manifest)
         {
@@ -411,6 +506,321 @@ namespace HushNetwork.Contracts
             StorageSetPaused(false);
         }
 
+        public static void SetUpdateFee(BigInteger newFee)
+        {
+            ExecutionEngine.Assert(IsOwner(), "Unauthorized");
+            ExecutionEngine.Assert(newFee >= 0, "Fee must be non-negative");
+            StorageSetUpdateFee(newFee);
+        }
+
+        // ── FEAT-078: Token lifecycle methods ─────────────────────────────────
+        // All creator lifecycle methods follow the same guard pattern:
+        //   1. Load tokenInfo — assert token exists
+        //   2. Assert Runtime.CheckWitness(creator) — only the creator
+        //   3. Assert tokenInfo[9] == 0 — token not locked
+        //   4. Validate inputs
+        //   5. Collect update fee via GAS.Transfer (except LockToken — no fee for irreversible ops)
+        //   6. Delegate to token via Contract.Call
+        //   7. Update factory registry
+        //   8. Emit event
+
+        // ── Task 4.1: MintTokens ──────────────────────────────────────────────
+
+        public static void MintTokens(UInt160 tokenHash, UInt160 to, BigInteger amount)
+        {
+            object[] tokenInfo = StorageGetTokenInfo(tokenHash);
+            ExecutionEngine.Assert(tokenInfo != null, "Token not found");
+            UInt160 creator = (UInt160)tokenInfo[1];
+            ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
+            ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
+            ExecutionEngine.Assert(amount > 0, "Amount must be positive");
+            ExecutionEngine.Assert(to.IsValid && !to.IsZero, "Invalid recipient");
+            GAS.Transfer(creator, Runtime.ExecutingScriptHash, StorageGetUpdateFee(), null);
+            Contract.Call(tokenHash, "mintByFactory", CallFlags.All, new object[] { to, amount });
+            tokenInfo[2] = (BigInteger)tokenInfo[2] + amount;
+            StorageSetTokenInfo(tokenHash, tokenInfo);
+            OnTokenMinted(tokenHash, to, amount, (BigInteger)Runtime.Time);
+        }
+
+        // ── Task 4.2: SetTokenBurnRate, SetTokenMaxSupply, UpdateTokenMetadata ─
+
+        public static void SetTokenBurnRate(UInt160 tokenHash, BigInteger bps)
+        {
+            object[] tokenInfo = StorageGetTokenInfo(tokenHash);
+            ExecutionEngine.Assert(tokenInfo != null, "Token not found");
+            UInt160 creator = (UInt160)tokenInfo[1];
+            ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
+            ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
+            ExecutionEngine.Assert(bps >= 0 && bps <= 1000, "Burn rate out of range");
+            GAS.Transfer(creator, Runtime.ExecutingScriptHash, StorageGetUpdateFee(), null);
+            Contract.Call(tokenHash, "setBurnRate", CallFlags.All, new object[] { bps });
+            tokenInfo[7] = bps;
+            StorageSetTokenInfo(tokenHash, tokenInfo);
+            OnTokenBurnRateSet(tokenHash, bps);
+        }
+
+        public static void SetTokenMaxSupply(UInt160 tokenHash, BigInteger newMax)
+        {
+            object[] tokenInfo = StorageGetTokenInfo(tokenHash);
+            ExecutionEngine.Assert(tokenInfo != null, "Token not found");
+            UInt160 creator = (UInt160)tokenInfo[1];
+            ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
+            ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
+            GAS.Transfer(creator, Runtime.ExecutingScriptHash, StorageGetUpdateFee(), null);
+            Contract.Call(tokenHash, "setMaxSupply", CallFlags.All, new object[] { newMax });
+            tokenInfo[8] = newMax;
+            StorageSetTokenInfo(tokenHash, tokenInfo);
+            OnTokenMaxSupplySet(tokenHash, newMax);
+        }
+
+        public static void UpdateTokenMetadata(UInt160 tokenHash, string imageUrl)
+        {
+            object[] tokenInfo = StorageGetTokenInfo(tokenHash);
+            ExecutionEngine.Assert(tokenInfo != null, "Token not found");
+            UInt160 creator = (UInt160)tokenInfo[1];
+            ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
+            ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
+            ExecutionEngine.Assert(imageUrl != null && imageUrl.Length > 0, "imageUrl must not be empty");
+            GAS.Transfer(creator, Runtime.ExecutingScriptHash, StorageGetUpdateFee(), null);
+            Contract.Call(tokenHash, "setMetadataUri", CallFlags.All, new object[] { imageUrl });
+            tokenInfo[6] = imageUrl;
+            StorageSetTokenInfo(tokenHash, tokenInfo);
+            OnTokenMetadataUpdated(tokenHash, imageUrl);
+        }
+
+        // ── Task 4.3: SetCreatorFee ───────────────────────────────────────────
+
+        public static void SetCreatorFee(UInt160 tokenHash, BigInteger newRate)
+        {
+            object[] tokenInfo = StorageGetTokenInfo(tokenHash);
+            ExecutionEngine.Assert(tokenInfo != null, "Token not found");
+            UInt160 creator = (UInt160)tokenInfo[1];
+            ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
+            ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
+            ExecutionEngine.Assert(newRate >= 0 && newRate <= 5_000_000, "Creator fee out of range");
+            GAS.Transfer(creator, Runtime.ExecutingScriptHash, StorageGetUpdateFee(), null);
+            Contract.Call(tokenHash, "setCreatorFee", CallFlags.All, new object[] { newRate });
+            // creatorFeeRate is NOT tracked in tokenInfo (lives on the token); event is sufficient for indexer
+            OnTokenCreatorFeeSet(tokenHash, newRate);
+        }
+
+        // ── Task 4.4: ChangeTokenMode ─────────────────────────────────────────
+        // Mode transition matrix:
+        //   community   → speculation   ✅
+        //   community   → crowdfunding  ✅
+        //   speculation → community     ✅  (pre-launch only; router check deferred to FEAT-073)
+        //   crowdfunding→ community     ✅  (pre-presale only; router check deferred to FEAT-074)
+        //   speculation → crowdfunding  ❌
+        //   crowdfunding→ speculation   ❌
+        //
+        // modeParams stored in factory registry (Prefix_ModeParams).
+        // When FEAT-073/074 add router calls, this factory must be redeployed.
+        // Factory redeploy must call AuthorizeAllTokens() to update each token's authorizedFactory.
+
+        public static void ChangeTokenMode(UInt160 tokenHash, string newMode, object[] modeParams)
+        {
+            object[] tokenInfo = StorageGetTokenInfo(tokenHash);
+            ExecutionEngine.Assert(tokenInfo != null, "Token not found");
+            UInt160 creator = (UInt160)tokenInfo[1];
+            ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
+            ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
+            string oldMode = (string)tokenInfo[3];
+            bool validTransition =
+                (oldMode == "community"    && (newMode == "speculation" || newMode == "crowdfunding")) ||
+                (oldMode == "speculation"  && newMode == "community") ||
+                (oldMode == "crowdfunding" && newMode == "community");
+            ExecutionEngine.Assert(validTransition, "Invalid mode transition");
+            GAS.Transfer(creator, Runtime.ExecutingScriptHash, StorageGetUpdateFee(), null);
+            if (modeParams != null && modeParams.Length > 0)
+                StorageSetModeParams(tokenHash, modeParams);
+            tokenInfo[3] = newMode;
+            StorageSetTokenInfo(tokenHash, tokenInfo);
+            OnTokenModeChanged(tokenHash, oldMode, newMode);
+        }
+
+        // ── Task 4.5: LockToken ───────────────────────────────────────────────
+        // Locking is irreversible — no update fee is charged (fee would be anti-user-trust
+        // for a permanent surrender of control).
+
+        public static void LockToken(UInt160 tokenHash)
+        {
+            object[] tokenInfo = StorageGetTokenInfo(tokenHash);
+            ExecutionEngine.Assert(tokenInfo != null, "Token not found");
+            UInt160 creator = (UInt160)tokenInfo[1];
+            ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
+            ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token already locked");
+            Contract.Call(tokenHash, "lock", CallFlags.All, new object[0]);
+            tokenInfo[9] = (BigInteger)1;
+            StorageSetTokenInfo(tokenHash, tokenInfo);
+            OnTokenLocked(tokenHash, creator, (BigInteger)Runtime.Time);
+        }
+
+        // Atomic lifecycle batch endpoint used by FEAT-078 staged changes.
+        // Sentinel values:
+        //   imageUrl      = ""   -> unchanged
+        //   burnRate      = -1   -> unchanged
+        //   creatorFee    = -1   -> unchanged
+        //   newMode       = ""   -> unchanged
+        //   newMaxSupply  = -1   -> unchanged
+        //   mintAmount    = 0    -> unchanged (mintTo ignored)
+        //   lockToken     = false-> unchanged
+        //
+        // Fee model:
+        //   One update fee is charged when at least one fee-bearing change is present
+        //   (metadata, burn rate, creator fee, mode, max supply, mint).
+        //   Lock-only batch remains fee-free, consistent with LockToken().
+        public static void ApplyTokenChanges(
+            UInt160 tokenHash,
+            string imageUrl,
+            BigInteger burnRate,
+            BigInteger creatorFeeRate,
+            string newMode,
+            object[] modeParams,
+            BigInteger newMaxSupply,
+            UInt160 mintTo,
+            BigInteger mintAmount,
+            bool lockToken)
+        {
+            object[] tokenInfo = StorageGetTokenInfo(tokenHash);
+            ExecutionEngine.Assert(tokenInfo != null, "Token not found");
+
+            UInt160 creator = (UInt160)tokenInfo[1];
+            ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
+            ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
+
+            bool applyMetadata   = imageUrl != null && imageUrl.Length > 0;
+            bool applyBurnRate   = burnRate >= 0;
+            bool applyCreatorFee = creatorFeeRate >= 0;
+            bool applyMode       = newMode != null && newMode.Length > 0;
+            bool applyMaxSupply  = newMaxSupply >= 0;
+            bool applyMint       = mintAmount > 0;
+            bool applyLock       = lockToken;
+
+            bool hasAny =
+                applyMetadata || applyBurnRate || applyCreatorFee ||
+                applyMode || applyMaxSupply || applyMint || applyLock;
+            ExecutionEngine.Assert(hasAny, "No changes requested");
+            ExecutionEngine.Assert(
+                !(applyMaxSupply && applyMint),
+                "Cannot combine maxSupply and mint in one batch");
+
+            bool chargeFee =
+                applyMetadata || applyBurnRate || applyCreatorFee ||
+                applyMode || applyMaxSupply || applyMint;
+            if (chargeFee)
+                GAS.Transfer(creator, Runtime.ExecutingScriptHash, StorageGetUpdateFee(), null);
+
+            if (applyMetadata)
+            {
+                Contract.Call(tokenHash, "setMetadataUri", CallFlags.All, new object[] { imageUrl });
+                tokenInfo[6] = imageUrl;
+                OnTokenMetadataUpdated(tokenHash, imageUrl);
+            }
+
+            if (applyBurnRate)
+            {
+                ExecutionEngine.Assert(burnRate <= 1000, "Burn rate out of range");
+                Contract.Call(tokenHash, "setBurnRate", CallFlags.All, new object[] { burnRate });
+                tokenInfo[7] = burnRate;
+                OnTokenBurnRateSet(tokenHash, burnRate);
+            }
+
+            if (applyCreatorFee)
+            {
+                ExecutionEngine.Assert(creatorFeeRate <= 5_000_000, "Creator fee out of range");
+                Contract.Call(tokenHash, "setCreatorFee", CallFlags.All, new object[] { creatorFeeRate });
+                OnTokenCreatorFeeSet(tokenHash, creatorFeeRate);
+            }
+
+            if (applyMode)
+            {
+                string oldMode = (string)tokenInfo[3];
+                bool validTransition =
+                    (oldMode == "community"    && (newMode == "speculation" || newMode == "crowdfunding")) ||
+                    (oldMode == "speculation"  && newMode == "community") ||
+                    (oldMode == "crowdfunding" && newMode == "community");
+                ExecutionEngine.Assert(validTransition, "Invalid mode transition");
+                if (modeParams != null && modeParams.Length > 0)
+                    StorageSetModeParams(tokenHash, modeParams);
+                tokenInfo[3] = newMode;
+                OnTokenModeChanged(tokenHash, oldMode, newMode);
+            }
+
+            if (applyMaxSupply)
+            {
+                Contract.Call(tokenHash, "setMaxSupply", CallFlags.All, new object[] { newMaxSupply });
+                tokenInfo[8] = newMaxSupply;
+                OnTokenMaxSupplySet(tokenHash, newMaxSupply);
+            }
+
+            if (applyMint)
+            {
+                ExecutionEngine.Assert(mintTo.IsValid && !mintTo.IsZero, "Invalid recipient");
+                Contract.Call(tokenHash, "mintByFactory", CallFlags.All, new object[] { mintTo, mintAmount });
+                tokenInfo[2] = (BigInteger)tokenInfo[2] + mintAmount;
+                OnTokenMinted(tokenHash, mintTo, mintAmount, (BigInteger)Runtime.Time);
+            }
+
+            if (applyLock)
+            {
+                Contract.Call(tokenHash, "lock", CallFlags.All, new object[0]);
+                tokenInfo[9] = (BigInteger)1;
+                OnTokenLocked(tokenHash, creator, (BigInteger)Runtime.Time);
+            }
+
+            StorageSetTokenInfo(tokenHash, tokenInfo);
+        }
+
+        // ── Task 4.6: AuthorizeAllTokens, SetAllTokensPlatformFee ────────────
+        // Paginated batch admin methods — both owner-only, batchSize capped at 50.
+        // Used for factory migration (AuthorizeAllTokens) and global fee updates.
+
+        public static void AuthorizeAllTokens(UInt160 newFactoryHash, BigInteger offset, BigInteger batchSize)
+        {
+            ExecutionEngine.Assert(IsOwner(), "Unauthorized");
+            ExecutionEngine.Assert(newFactoryHash.IsValid && !newFactoryHash.IsZero, "Invalid factory hash");
+            if (batchSize > 50) batchSize = 50;
+            BigInteger total = StorageGetTotalTokenCount();
+            BigInteger count = 0;
+            int batchInt = (int)batchSize;
+            for (int i = 0; i < batchInt; i++)
+            {
+                BigInteger idx = offset + i;
+                if (idx >= total) break;
+                UInt160 tokenHash = StorageGetGlobalTokenAtIndex(idx);
+                if (tokenHash is not null)
+                {
+                    Contract.Call(tokenHash, "authorizeFactory", CallFlags.All, new object[] { newFactoryHash });
+                    count++;
+                }
+            }
+            OnTokensMigrated(newFactoryHash, offset, count);
+        }
+
+        public static void SetAllTokensPlatformFee(BigInteger newRate, BigInteger offset, BigInteger batchSize)
+        {
+            ExecutionEngine.Assert(IsOwner(), "Unauthorized");
+            ExecutionEngine.Assert(newRate >= 0, "Rate must be non-negative");
+            if (batchSize > 50) batchSize = 50;
+            BigInteger total = StorageGetTotalTokenCount();
+            BigInteger count = 0;
+            int batchInt = (int)batchSize;
+            for (int i = 0; i < batchInt; i++)
+            {
+                BigInteger idx = offset + i;
+                if (idx >= total) break;
+                UInt160 tokenHash = StorageGetGlobalTokenAtIndex(idx);
+                if (tokenHash is not null)
+                {
+                    Contract.Call(tokenHash, "setPlatformFeeRate", CallFlags.All, new object[] { newRate });
+                    count++;
+                }
+            }
+            // Update factory default so future tokens get the new platform fee rate
+            StorageSetPlatformFeeRate(newRate);
+            OnPlatformFeeRateUpdated(newRate, offset, count);
+        }
+
         // ── Deploy ────────────────────────────────────────────────────────────
 
         public static void _deploy(object data, bool update)
@@ -427,7 +837,9 @@ namespace HushNetwork.Contracts
             ExecutionEngine.Assert(initialOwner.IsValid && !initialOwner.IsZero, "owner must exist");
 
             StorageSetOwner(initialOwner);
-            StorageSetMinFee(1_500_000_000); // Default: 15 GAS (covers ~10.17 GAS deployment + margin)
+            StorageSetMinFee(1_500_000_000);    // Default: 15 GAS (covers ~10.17 GAS deployment + margin)
+            StorageSetUpdateFee(50_000_000);    // FEAT-078 default: 0.5 GAS per lifecycle setter call
+            StorageSetPlatformFeeRate(0);       // FEAT-078 default: no platform fee on transfers
             OnSetOwner(null, initialOwner);
         }
 

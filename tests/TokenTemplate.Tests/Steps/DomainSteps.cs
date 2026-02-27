@@ -275,8 +275,12 @@ public class DomainSteps
     {
         SignAs("walletA");
         _context.LastException = null;
+        // FEAT-078: Lock() now requires CallingScriptHash == authorizedFactory.
+        // In test deployments, authorizedFactory == owner (DeployParams fallback).
+        _context.Engine.OnGetCallingScriptHash = (_, _) => _context.OwnerSigner.Account;
         try { _context.Contract!.Lock(); }
         catch (Exception ex) { _context.LastException = ex; }
+        finally { _context.Engine.OnGetCallingScriptHash = null; }
     }
 
     [When(@"walletB calls lock")]
@@ -284,6 +288,7 @@ public class DomainSteps
     {
         SignAs("walletB");
         _context.LastException = null;
+        // No CallingScriptHash mock — walletB is not the authorizedFactory; should be rejected.
         try { _context.Contract!.Lock(); }
         catch (Exception ex) { _context.LastException = ex; }
     }
@@ -292,7 +297,13 @@ public class DomainSteps
     public void GivenOwnerHasLockedContract()
     {
         SignAs("walletA");
-        _context.Contract!.Lock();
+        // lock() requires CallingScriptHash == authorizedFactory.
+        // When deployed without an explicit factory, factory defaults to owner (walletA).
+        // When deployed with an explicit factory (e.g. walletB), we must use that factory hash.
+        var factory = _context.Contract!.getAuthorizedFactory() ?? _context.OwnerSigner.Account;
+        _context.Engine.OnGetCallingScriptHash = (_, _) => factory;
+        try { _context.Contract!.Lock(); }
+        finally { _context.Engine.OnGetCallingScriptHash = null; }
     }
 
     // ── Pause steps ───────────────────────────────────────────────────────────
@@ -302,8 +313,10 @@ public class DomainSteps
     {
         SignAs("walletA");
         _context.LastException = null;
+        _context.Engine.OnGetCallingScriptHash = (_, _) => _context.OwnerSigner.Account;
         try { _context.Contract!.pause(); }
         catch (Exception ex) { _context.LastException = ex; }
+        finally { _context.Engine.OnGetCallingScriptHash = null; }
     }
 
     [When("the owner calls unpause")]
@@ -311,8 +324,10 @@ public class DomainSteps
     {
         SignAs("walletA");
         _context.LastException = null;
+        _context.Engine.OnGetCallingScriptHash = (_, _) => _context.OwnerSigner.Account;
         try { _context.Contract!.unpause(); }
         catch (Exception ex) { _context.LastException = ex; }
+        finally { _context.Engine.OnGetCallingScriptHash = null; }
     }
 
     [When(@"walletB calls pause")]
@@ -320,6 +335,7 @@ public class DomainSteps
     {
         SignAs("walletB");
         _context.LastException = null;
+        // No CallingScriptHash mock — walletB is not the authorizedFactory; should be rejected.
         try { _context.Contract!.pause(); }
         catch (Exception ex) { _context.LastException = ex; }
     }
@@ -330,15 +346,19 @@ public class DomainSteps
         SignAs("walletA");
         bool value = valueStr == "true";
         _context.LastException = null;
+        _context.Engine.OnGetCallingScriptHash = (_, _) => _context.OwnerSigner.Account;
         try { _context.Contract!.setPausable(value); }
         catch (Exception ex) { _context.LastException = ex; }
+        finally { _context.Engine.OnGetCallingScriptHash = null; }
     }
 
     [Given("the owner has paused the contract")]
     public void GivenOwnerHasPausedContract()
     {
         SignAs("walletA");
-        _context.Contract!.pause();
+        _context.Engine.OnGetCallingScriptHash = (_, _) => _context.OwnerSigner.Account;
+        try { _context.Contract!.pause(); }
+        finally { _context.Engine.OnGetCallingScriptHash = null; }
     }
 
     // ── Numeric assertion steps ────────────────────────────────────────────────

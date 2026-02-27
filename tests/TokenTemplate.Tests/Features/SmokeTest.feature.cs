@@ -174,7 +174,7 @@ namespace TokenTemplate.Tests.Features
     await testRunner.WhenAsync("the contract is deployed with symbol \"TST\" and decimals 8", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 16
-    await testRunner.ThenAsync("the GAS consumed by deployment is 1017433580 datoshi", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("the GAS consumed by deployment is 1080082170 datoshi", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
