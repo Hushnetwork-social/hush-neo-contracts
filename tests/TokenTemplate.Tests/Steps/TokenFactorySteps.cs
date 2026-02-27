@@ -1023,6 +1023,121 @@ public class TokenFactorySteps
         catch (Exception ex) { _context.LastException = ex; }
     }
 
+    [When(@"(\w+) calls factory ApplyTokenChanges metadata ""(.*)""")]
+    public void WalletCallsFactoryApplyTokenChangesMetadata(string fromWallet, string imageUrl)
+    {
+        CallApplyTokenChanges(fromWallet, imageUrl: imageUrl);
+    }
+
+    [When(@"(\w+) calls factory ApplyTokenChanges burnRate (\d+)")]
+    public void WalletCallsFactoryApplyTokenChangesBurnRate(string fromWallet, long burnRate)
+    {
+        CallApplyTokenChanges(fromWallet, burnRate: burnRate);
+    }
+
+    [When(@"(\w+) calls factory ApplyTokenChanges maxSupply (\d+)")]
+    public void WalletCallsFactoryApplyTokenChangesMaxSupply(string fromWallet, long maxSupply)
+    {
+        CallApplyTokenChanges(fromWallet, newMaxSupply: maxSupply);
+    }
+
+    [When(@"(\w+) calls factory ApplyTokenChanges creatorFee (\d+)")]
+    public void WalletCallsFactoryApplyTokenChangesCreatorFee(string fromWallet, long creatorFeeRate)
+    {
+        CallApplyTokenChanges(fromWallet, creatorFeeRate: creatorFeeRate);
+    }
+
+    [When(@"(\w+) calls factory ApplyTokenChanges mode ""(\w+)""")]
+    public void WalletCallsFactoryApplyTokenChangesMode(string fromWallet, string mode)
+    {
+        CallApplyTokenChanges(fromWallet, newMode: mode);
+    }
+
+    [When(@"(\w+) calls factory ApplyTokenChanges mint (\d+) to (\w+)")]
+    public void WalletCallsFactoryApplyTokenChangesMint(string fromWallet, long mintAmount, string toWallet)
+    {
+        CallApplyTokenChanges(
+            fromWallet,
+            mintTo: GetOrCreateWallet(toWallet).Account,
+            mintAmount: mintAmount);
+    }
+
+    [When(@"(\w+) calls factory ApplyTokenChanges with 2 changes metadata ""(.*)"" and burnRate (\d+)")]
+    public void WalletCallsFactoryApplyTokenChangesTwo(string fromWallet, string imageUrl, long burnRate)
+    {
+        CallApplyTokenChanges(fromWallet, imageUrl: imageUrl, burnRate: burnRate);
+    }
+
+    [When(@"(\w+) calls factory ApplyTokenChanges with 3 changes creatorFee (\d+) burnRate (\d+) and mint (\d+) to (\w+)")]
+    public void WalletCallsFactoryApplyTokenChangesThree(
+        string fromWallet, long creatorFeeRate, long burnRate, long mintAmount, string toWallet)
+    {
+        CallApplyTokenChanges(
+            fromWallet,
+            creatorFeeRate: creatorFeeRate,
+            burnRate: burnRate,
+            mintTo: GetOrCreateWallet(toWallet).Account,
+            mintAmount: mintAmount);
+    }
+
+    [When(@"(\w+) calls factory ApplyTokenChanges with maxSupply (\d+) and mint (\d+) to (\w+)")]
+    public void WalletCallsFactoryApplyTokenChangesMaxSupplyAndMint(
+        string fromWallet, long maxSupply, long mintAmount, string toWallet)
+    {
+        CallApplyTokenChanges(
+            fromWallet,
+            newMaxSupply: maxSupply,
+            mintTo: GetOrCreateWallet(toWallet).Account,
+            mintAmount: mintAmount);
+    }
+
+    [When(@"(\w+) calls factory ApplyTokenChanges metadata ""(.*)"" and lock")]
+    public void WalletCallsFactoryApplyTokenChangesMetadataAndLock(string fromWallet, string imageUrl)
+    {
+        CallApplyTokenChanges(fromWallet, imageUrl: imageUrl, lockToken: true);
+    }
+
+    [Given(@"(\w+) has applied metadata update and lock atomically on (\w+)")]
+    public void GivenWalletHasAppliedMetadataAndLockAtomically(string fromWallet, string tokenName)
+    {
+        Assert.That(_namedTokens.ContainsKey(tokenName), Is.True, $"Unknown token alias: {tokenName}");
+        var tokenHash = _namedTokens[tokenName];
+        var signer = GetOrCreateWallet(fromWallet);
+        FundWalletWithGas(signer.Account, 500_000_000);
+        _context.Engine.SetTransactionSigners(new Signer { Account = signer.Account, Scopes = WitnessScope.Global });
+        _context.LastException = null;
+        try
+        {
+            _context.Factory!.ApplyTokenChanges(
+                tokenHash,
+                "https://scarlet-given-sheep-822.mypinata.cloud/ipfs/bafybeic7fqu2ri7bd4jhxlvfu35pzzoqhbb54etgk56q5dqmbymicdanme",
+                (BigInteger)(-1),
+                (BigInteger)(-1),
+                "",
+                new object[0],
+                (BigInteger)(-1),
+                UInt160.Zero,
+                (BigInteger)0,
+                true);
+        }
+        catch (Exception ex) { _context.LastException = ex; }
+
+        Assert.That(_context.LastException, Is.Null,
+            $"Atomic metadata+lock setup failed: {_context.LastException?.Message}");
+    }
+
+    [When(@"(\w+) calls factory ApplyTokenChanges with 4 changes metadata ""(.*)"" burnRate (\d+) creatorFee (\d+) and mode ""(\w+)""")]
+    public void WalletCallsFactoryApplyTokenChangesFour(
+        string fromWallet, string imageUrl, long burnRate, long creatorFeeRate, string mode)
+    {
+        CallApplyTokenChanges(
+            fromWallet,
+            imageUrl: imageUrl,
+            burnRate: burnRate,
+            creatorFeeRate: creatorFeeRate,
+            newMode: mode);
+    }
+
     // ── Task 5.4: Batch admin methods (When) ──────────────────────────────────
 
     [When(@"the owner calls factory AuthorizeAllTokens (\w+) offset (\d+) batchSize (\d+)")]
@@ -1124,6 +1239,26 @@ public class TokenFactorySteps
         Assert.That(ParseBigInteger(info![8]), Is.EqualTo((BigInteger)expected));
     }
 
+    [Then(@"the registry token supply is (\d+)")]
+    public void ThenRegistryTokenSupplyIs(long expected)
+    {
+        Assert.That(_context.LastException, Is.Null,
+            $"Previous step threw: {_context.LastException?.Message}");
+        var info = _context.Factory!.GetToken(_namedTokens["MYTOK"]);
+        Assert.That(info, Is.Not.Null, "GetToken returned null");
+        Assert.That(ParseBigInteger(info![2]), Is.EqualTo((BigInteger)expected));
+    }
+
+    [Then(@"the token creator fee rate is (\d+)")]
+    public void ThenTokenCreatorFeeRateIs(long expected)
+    {
+        Assert.That(_context.LastException, Is.Null,
+            $"Previous step threw: {_context.LastException?.Message}");
+        var tokenHash = _namedTokens["MYTOK"];
+        var token = _context.Engine.FromHash<TokenTemplateContract>(tokenHash, true);
+        Assert.That(token.getCreatorFeeRate(), Is.EqualTo((BigInteger)expected));
+    }
+
     [Then("the registry token is locked")]
     public void ThenRegistryTokenIsLocked()
     {
@@ -1179,5 +1314,39 @@ public class TokenFactorySteps
         var tokenHash = _namedTokens[tokenName];
         var token     = _context.Engine.FromHash<TokenTemplateContract>(tokenHash, true);
         Assert.That(token.getPlatformFeeRate(), Is.EqualTo((BigInteger)expected));
+    }
+
+    private void CallApplyTokenChanges(
+        string fromWallet,
+        string imageUrl = "",
+        long burnRate = -1,
+        long creatorFeeRate = -1,
+        string newMode = "",
+        long newMaxSupply = -1,
+        UInt160? mintTo = null,
+        long mintAmount = 0,
+        bool lockToken = false)
+    {
+        var tokenHash = _namedTokens["MYTOK"];
+        FundWalletWithGas(GetOrCreateWallet(fromWallet).Account, 500_000_000);
+        _factoryGasBefore = GasBalanceOf(_context.Factory!.Hash);
+        var signer = GetOrCreateWallet(fromWallet);
+        _context.Engine.SetTransactionSigners(new Signer { Account = signer.Account, Scopes = WitnessScope.Global });
+        _context.LastException = null;
+        try
+        {
+            _context.Factory!.ApplyTokenChanges(
+                tokenHash,
+                imageUrl,
+                (BigInteger)burnRate,
+                (BigInteger)creatorFeeRate,
+                newMode,
+                new object[0],
+                (BigInteger)newMaxSupply,
+                mintTo ?? UInt160.Zero,
+                (BigInteger)mintAmount,
+                lockToken);
+        }
+        catch (Exception ex) { _context.LastException = ex; }
     }
 }

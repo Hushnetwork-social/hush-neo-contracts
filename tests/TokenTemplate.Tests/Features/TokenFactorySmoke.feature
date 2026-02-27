@@ -10,4 +10,4 @@ Feature: TokenFactory — Smoke Test
   Scenario: Measure GAS cost of TokenFactory deployment
     Given the TokenFactory test engine is initialized
     And a freshly deployed TokenFactory
-    Then the factory deployment GAS is 1124311110 datoshi
+    Then the factory deployment GAS is 1276911110 datoshi

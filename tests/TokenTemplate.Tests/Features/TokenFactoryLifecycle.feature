@@ -79,6 +79,11 @@ Feature: TokenFactory — Token Lifecycle Operations
     When walletA calls factory SetTokenMaxSupply 9999999
     Then the registry token max supply is 9999999
 
+  Scenario: SetTokenMaxSupply fails on locked token
+    Given walletA has locked the MYTOK token via factory
+    When walletA calls factory SetTokenMaxSupply 5000000
+    Then the transaction is aborted
+
   # ── UpdateTokenMetadata ───────────────────────────────────────────────────────
 
   Scenario: Creator updates image URL
@@ -94,6 +99,11 @@ Feature: TokenFactory — Token Lifecycle Operations
     When walletB calls factory UpdateTokenMetadata "https://evil.example.com/icon.png"
     Then the transaction is aborted
 
+  Scenario: UpdateTokenMetadata fails on locked token
+    Given walletA has locked the MYTOK token via factory
+    When walletA calls factory UpdateTokenMetadata "https://locked.example.com/icon.png"
+    Then the transaction is aborted
+
   # ── SetCreatorFee ─────────────────────────────────────────────────────────────
 
   Scenario: Creator sets transfer fee rate
@@ -107,6 +117,11 @@ Feature: TokenFactory — Token Lifecycle Operations
   Scenario: SetCreatorFee emits event and collects fee
     When walletA calls factory SetCreatorFee 200000
     Then the factory GAS balance increased from the operation
+
+  Scenario: SetCreatorFee fails on locked token
+    Given walletA has locked the MYTOK token via factory
+    When walletA calls factory SetCreatorFee 100000
+    Then the transaction is aborted
 
   # ── ChangeTokenMode ───────────────────────────────────────────────────────────
 
@@ -191,3 +206,72 @@ Feature: TokenFactory — Token Lifecycle Operations
   Scenario: Batch with offset beyond count processes zero tokens
     When the owner calls factory AuthorizeAllTokens walletB offset 100 batchSize 10
     Then the transaction succeeds
+
+  # ── Atomic staged changes (single tx) ───────────────────────────────────────
+
+  Scenario: ApplyTokenChanges updates metadata in one atomic call
+    When walletA calls factory ApplyTokenChanges metadata "https://scarlet-given-sheep-822.mypinata.cloud/ipfs/bafybeic7fqu2ri7bd4jhxlvfu35pzzoqhbb54etgk56q5dqmbymicdanme"
+    Then the transaction succeeds
+    And the registry token imageUrl is "https://scarlet-given-sheep-822.mypinata.cloud/ipfs/bafybeic7fqu2ri7bd4jhxlvfu35pzzoqhbb54etgk56q5dqmbymicdanme"
+
+  Scenario: ApplyTokenChanges updates burn rate in one atomic call
+    When walletA calls factory ApplyTokenChanges burnRate 180
+    Then the transaction succeeds
+    And the registry token burn rate is 180
+
+  Scenario: ApplyTokenChanges updates max supply in one atomic call
+    When walletA calls factory ApplyTokenChanges maxSupply 2200000
+    Then the transaction succeeds
+    And the registry token max supply is 2200000
+
+  Scenario: ApplyTokenChanges updates creator fee in one atomic call
+    When walletA calls factory ApplyTokenChanges creatorFee 250000
+    Then the transaction succeeds
+    And the token creator fee rate is 250000
+
+  Scenario: ApplyTokenChanges updates mode in one atomic call
+    When walletA calls factory ApplyTokenChanges mode "speculation"
+    Then the transaction succeeds
+    And the registry token mode is "speculation"
+
+  Scenario: ApplyTokenChanges updates 2 fields atomically
+    When walletA calls factory ApplyTokenChanges with 2 changes metadata "https://scarlet-given-sheep-822.mypinata.cloud/ipfs/bafybeic7fqu2ri7bd4jhxlvfu35pzzoqhbb54etgk56q5dqmbymicdanme" and burnRate 220
+    Then the transaction succeeds
+    And the registry token imageUrl is "https://scarlet-given-sheep-822.mypinata.cloud/ipfs/bafybeic7fqu2ri7bd4jhxlvfu35pzzoqhbb54etgk56q5dqmbymicdanme"
+    And the registry token burn rate is 220
+
+  Scenario: ApplyTokenChanges updates 3 fields atomically
+    When walletA calls factory ApplyTokenChanges with 3 changes creatorFee 300000 burnRate 250 and mint 500000 to walletB
+    Then the transaction succeeds
+    And the token creator fee rate is 300000
+    And the registry token burn rate is 250
+    And the registry token supply is 1500000
+    And walletB's token balance on MYTOK is 500000
+
+  Scenario: ApplyTokenChanges updates 4 fields atomically
+    When walletA calls factory ApplyTokenChanges with 4 changes metadata "https://scarlet-given-sheep-822.mypinata.cloud/ipfs/bafybeic7fqu2ri7bd4jhxlvfu35pzzoqhbb54etgk56q5dqmbymicdanme" burnRate 125 creatorFee 150000 and mode "speculation"
+    Then the transaction succeeds
+    And the registry token imageUrl is "https://scarlet-given-sheep-822.mypinata.cloud/ipfs/bafybeic7fqu2ri7bd4jhxlvfu35pzzoqhbb54etgk56q5dqmbymicdanme"
+    And the registry token burn rate is 125
+    And the token creator fee rate is 150000
+    And the registry token mode is "speculation"
+
+  Scenario: ApplyTokenChanges fails on locked token
+    Given walletA has locked the MYTOK token via factory
+    When walletA calls factory ApplyTokenChanges burnRate 180
+    Then the transaction is aborted
+
+  Scenario: ApplyTokenChanges rejects maxSupply and mint in the same call
+    When walletA calls factory ApplyTokenChanges with maxSupply 2500000 and mint 500000 to walletB
+    Then the transaction is aborted
+
+  Scenario: ApplyTokenChanges can update metadata and lock atomically
+    When walletA calls factory ApplyTokenChanges metadata "https://scarlet-given-sheep-822.mypinata.cloud/ipfs/bafybeic7fqu2ri7bd4jhxlvfu35pzzoqhbb54etgk56q5dqmbymicdanme" and lock
+    Then the transaction succeeds
+    And the registry token imageUrl is "https://scarlet-given-sheep-822.mypinata.cloud/ipfs/bafybeic7fqu2ri7bd4jhxlvfu35pzzoqhbb54etgk56q5dqmbymicdanme"
+    And the registry token is locked
+
+  Scenario: After atomic lock, later changes are rejected
+    Given walletA has applied metadata update and lock atomically on MYTOK
+    When walletA calls factory UpdateTokenMetadata "https://locked-after-atomic.example/icon.png"
+    Then the transaction is aborted

@@ -655,6 +655,122 @@ namespace HushNetwork.Contracts
             OnTokenLocked(tokenHash, creator, (BigInteger)Runtime.Time);
         }
 
+        // Atomic lifecycle batch endpoint used by FEAT-078 staged changes.
+        // Sentinel values:
+        //   imageUrl      = ""   -> unchanged
+        //   burnRate      = -1   -> unchanged
+        //   creatorFee    = -1   -> unchanged
+        //   newMode       = ""   -> unchanged
+        //   newMaxSupply  = -1   -> unchanged
+        //   mintAmount    = 0    -> unchanged (mintTo ignored)
+        //   lockToken     = false-> unchanged
+        //
+        // Fee model:
+        //   One update fee is charged when at least one fee-bearing change is present
+        //   (metadata, burn rate, creator fee, mode, max supply, mint).
+        //   Lock-only batch remains fee-free, consistent with LockToken().
+        public static void ApplyTokenChanges(
+            UInt160 tokenHash,
+            string imageUrl,
+            BigInteger burnRate,
+            BigInteger creatorFeeRate,
+            string newMode,
+            object[] modeParams,
+            BigInteger newMaxSupply,
+            UInt160 mintTo,
+            BigInteger mintAmount,
+            bool lockToken)
+        {
+            object[] tokenInfo = StorageGetTokenInfo(tokenHash);
+            ExecutionEngine.Assert(tokenInfo != null, "Token not found");
+
+            UInt160 creator = (UInt160)tokenInfo[1];
+            ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
+            ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
+
+            bool applyMetadata   = imageUrl != null && imageUrl.Length > 0;
+            bool applyBurnRate   = burnRate >= 0;
+            bool applyCreatorFee = creatorFeeRate >= 0;
+            bool applyMode       = newMode != null && newMode.Length > 0;
+            bool applyMaxSupply  = newMaxSupply >= 0;
+            bool applyMint       = mintAmount > 0;
+            bool applyLock       = lockToken;
+
+            bool hasAny =
+                applyMetadata || applyBurnRate || applyCreatorFee ||
+                applyMode || applyMaxSupply || applyMint || applyLock;
+            ExecutionEngine.Assert(hasAny, "No changes requested");
+            ExecutionEngine.Assert(
+                !(applyMaxSupply && applyMint),
+                "Cannot combine maxSupply and mint in one batch");
+
+            bool chargeFee =
+                applyMetadata || applyBurnRate || applyCreatorFee ||
+                applyMode || applyMaxSupply || applyMint;
+            if (chargeFee)
+                GAS.Transfer(creator, Runtime.ExecutingScriptHash, StorageGetUpdateFee(), null);
+
+            if (applyMetadata)
+            {
+                Contract.Call(tokenHash, "setMetadataUri", CallFlags.All, new object[] { imageUrl });
+                tokenInfo[6] = imageUrl;
+                OnTokenMetadataUpdated(tokenHash, imageUrl);
+            }
+
+            if (applyBurnRate)
+            {
+                ExecutionEngine.Assert(burnRate <= 1000, "Burn rate out of range");
+                Contract.Call(tokenHash, "setBurnRate", CallFlags.All, new object[] { burnRate });
+                tokenInfo[7] = burnRate;
+                OnTokenBurnRateSet(tokenHash, burnRate);
+            }
+
+            if (applyCreatorFee)
+            {
+                ExecutionEngine.Assert(creatorFeeRate <= 5_000_000, "Creator fee out of range");
+                Contract.Call(tokenHash, "setCreatorFee", CallFlags.All, new object[] { creatorFeeRate });
+                OnTokenCreatorFeeSet(tokenHash, creatorFeeRate);
+            }
+
+            if (applyMode)
+            {
+                string oldMode = (string)tokenInfo[3];
+                bool validTransition =
+                    (oldMode == "community"    && (newMode == "speculation" || newMode == "crowdfunding")) ||
+                    (oldMode == "speculation"  && newMode == "community") ||
+                    (oldMode == "crowdfunding" && newMode == "community");
+                ExecutionEngine.Assert(validTransition, "Invalid mode transition");
+                if (modeParams != null && modeParams.Length > 0)
+                    StorageSetModeParams(tokenHash, modeParams);
+                tokenInfo[3] = newMode;
+                OnTokenModeChanged(tokenHash, oldMode, newMode);
+            }
+
+            if (applyMaxSupply)
+            {
+                Contract.Call(tokenHash, "setMaxSupply", CallFlags.All, new object[] { newMaxSupply });
+                tokenInfo[8] = newMaxSupply;
+                OnTokenMaxSupplySet(tokenHash, newMaxSupply);
+            }
+
+            if (applyMint)
+            {
+                ExecutionEngine.Assert(mintTo.IsValid && !mintTo.IsZero, "Invalid recipient");
+                Contract.Call(tokenHash, "mintByFactory", CallFlags.All, new object[] { mintTo, mintAmount });
+                tokenInfo[2] = (BigInteger)tokenInfo[2] + mintAmount;
+                OnTokenMinted(tokenHash, mintTo, mintAmount, (BigInteger)Runtime.Time);
+            }
+
+            if (applyLock)
+            {
+                Contract.Call(tokenHash, "lock", CallFlags.All, new object[0]);
+                tokenInfo[9] = (BigInteger)1;
+                OnTokenLocked(tokenHash, creator, (BigInteger)Runtime.Time);
+            }
+
+            StorageSetTokenInfo(tokenHash, tokenInfo);
+        }
+
         // ── Task 4.6: AuthorizeAllTokens, SetAllTokensPlatformFee ────────────
         // Paginated batch admin methods — both owner-only, batchSize capped at 50.
         // Used for factory migration (AuthorizeAllTokens) and global fee updates.

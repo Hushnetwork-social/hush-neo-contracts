@@ -119,6 +119,19 @@ public abstract class TokenFactoryContract : SmartContract
     [DisplayName("lockToken")]
     public abstract void LockToken(UInt160? tokenHash);
 
+    [DisplayName("applyTokenChanges")]
+    public abstract void ApplyTokenChanges(
+        UInt160? tokenHash,
+        string? imageUrl,
+        BigInteger? burnRate,
+        BigInteger? creatorFeeRate,
+        string? newMode,
+        object[]? modeParams,
+        BigInteger? newMaxSupply,
+        UInt160? mintTo,
+        BigInteger? mintAmount,
+        bool lockToken);
+
     // ── FEAT-078: Batch admin methods ─────────────────────────────────────────
 
     [DisplayName("authorizeAllTokens")]
