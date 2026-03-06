@@ -88,6 +88,9 @@ public abstract class TokenFactoryContract : SmartContract
     [DisplayName("getPlatformFeeRate")]
     public abstract BigInteger GetPlatformFeeRate();
 
+    [DisplayName("getConfig")]
+    public abstract object[]? GetConfig();
+
     [DisplayName("getModeParams")]
     public abstract object[]? GetModeParams(UInt160? tokenHash);
 

@@ -33,6 +33,8 @@ namespace HushNetwork.Contracts
         private const byte Prefix_Paused              = 0xe3; // BigInteger 0/1: factory paused flag
         private const byte Prefix_UpdateFee           = 0xe4; // FEAT-078: BigInteger (datoshi) — fee to call lifecycle setters via factory
         private const byte Prefix_PlatformFeeRate     = 0xe5; // FEAT-078: BigInteger (datoshi) — per-transfer platform fee passed to deployed tokens
+        private const byte Prefix_TemplateVersion     = 0xe6; // FEAT-079: BigInteger version of the configured template artifacts
+        private const byte Prefix_TemplateHash        = 0xe7; // FEAT-079: UInt160 identity hash of the configured template artifacts
 
         // ── Owner storage helpers ─────────────────────────────────────────────
 
@@ -122,6 +124,24 @@ namespace HushNetwork.Contracts
 
         private static void StorageSetPlatformFeeRate(BigInteger value) =>
             Storage.Put(new[] { Prefix_PlatformFeeRate }, value);
+
+        private static BigInteger StorageGetTemplateVersion()
+        {
+            ByteString raw = Storage.Get(new[] { Prefix_TemplateVersion });
+            return raw is null ? 1 : (BigInteger)raw;
+        }
+
+        private static void StorageSetTemplateVersion(BigInteger value) =>
+            Storage.Put(new[] { Prefix_TemplateVersion }, value);
+
+        private static UInt160 StorageGetTemplateHash()
+        {
+            ByteString raw = Storage.Get(new[] { Prefix_TemplateHash });
+            return raw is null ? UInt160.Zero : (UInt160)raw;
+        }
+
+        private static void StorageSetTemplateHash(UInt160 value) =>
+            Storage.Put(new[] { Prefix_TemplateHash }, value);
 
         // ── Token count helpers ───────────────────────────────────────────────
 
@@ -459,6 +479,22 @@ namespace HushNetwork.Contracts
             StorageGetPlatformFeeRate();
 
         [Safe]
+        public static object[] GetConfig()
+        {
+            return new object[]
+            {
+                StorageGetMinFee(),
+                StorageGetUpdateFee(),
+                StorageGetPaused(),
+                StorageGetOwner(),
+                StorageGetTemplateHash(),
+                StorageGetTemplateVersion(),
+                StorageGetNefBytes() is not null,
+                StorageGetManifest().Length > 0,
+            };
+        }
+
+        [Safe]
         public static object[] GetModeParams(UInt160 tokenHash) =>
             StorageGetModeParams(tokenHash);
 
@@ -472,6 +508,9 @@ namespace HushNetwork.Contracts
             ExecutionEngine.Assert(manifest != null && manifest.Length > 0, "Manifest must not be empty");
             StorageSetNefBytes(nef);
             StorageSetManifest(manifest);
+            ByteString identity = nef + (ByteString)manifest;
+            UInt160 templateHash = (UInt160)CryptoLib.Ripemd160(CryptoLib.Sha256(identity));
+            StorageSetTemplateHash(templateHash);
         }
 
         public static void SetFee(BigInteger standardFeeDataoshi)
@@ -840,6 +879,8 @@ namespace HushNetwork.Contracts
             StorageSetMinFee(1_500_000_000);    // Default: 15 GAS (covers ~10.17 GAS deployment + margin)
             StorageSetUpdateFee(50_000_000);    // FEAT-078 default: 0.5 GAS per lifecycle setter call
             StorageSetPlatformFeeRate(0);       // FEAT-078 default: no platform fee on transfers
+            StorageSetTemplateVersion(1);       // FEAT-079 default: initial configured template version
+            StorageSetTemplateHash(UInt160.Zero);
             OnSetOwner(null, initialOwner);
         }
 
