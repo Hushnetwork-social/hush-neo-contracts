@@ -60,6 +60,9 @@ public abstract class TokenFactoryContract : SmartContract
     [DisplayName("setFee")]
     public abstract void SetFee(BigInteger? standardFeeDataoshi);
 
+    [DisplayName("setCreationFee")]
+    public abstract void SetCreationFee(BigInteger? feeInDatoshi);
+
     [DisplayName("setTreasuryAddress")]
     public abstract void SetTreasuryAddress(UInt160? address);
 
@@ -71,6 +74,9 @@ public abstract class TokenFactoryContract : SmartContract
 
     [DisplayName("unpause")]
     public abstract void Unpause();
+
+    [DisplayName("setPaused")]
+    public abstract void SetPaused(bool paused);
 
     [DisplayName("setOwner")]
     public abstract void SetOwner(UInt160? newOwner);
@@ -98,6 +104,18 @@ public abstract class TokenFactoryContract : SmartContract
 
     [DisplayName("setUpdateFee")]
     public abstract void SetUpdateFee(BigInteger? newFee);
+
+    [DisplayName("setOperationFee")]
+    public abstract void SetOperationFee(BigInteger? newFee);
+
+    [DisplayName("upgradeTemplate")]
+    public abstract void UpgradeTemplate(byte[]? nef, string? manifest);
+
+    [DisplayName("claimAll")]
+    public abstract void ClaimAll(UInt160? assetHash);
+
+    [DisplayName("claim")]
+    public abstract void Claim(UInt160? assetHash, BigInteger? amount);
 
     // ── FEAT-078: Creator lifecycle methods ───────────────────────────────────
 

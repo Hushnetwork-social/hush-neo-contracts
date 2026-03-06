@@ -49,6 +49,43 @@ namespace HushNetwork.Contracts
         private static bool IsOwner() =>
             Runtime.CheckWitness(StorageGetOwner());
 
+        private static void AssertOwnerAuthorized() =>
+            ExecutionEngine.Assert(IsOwner(), "Unauthorized");
+
+        private static void AssertFactoryActive() =>
+            ExecutionEngine.Assert(!StorageGetPaused(), "Factory is paused");
+
+        private static UInt160 ComputeTemplateHash(ByteString nef, string manifest)
+        {
+            ByteString identity = nef + (ByteString)manifest;
+            return (UInt160)CryptoLib.Ripemd160(CryptoLib.Sha256(identity));
+        }
+
+        private static BigInteger GetAssetBalance(UInt160 assetHash)
+        {
+            object raw = Contract.Call(assetHash, "balanceOf", CallFlags.ReadOnly, new object[] { Runtime.ExecutingScriptHash });
+            return (BigInteger)raw;
+        }
+
+        private static void ClaimInternal(UInt160 assetHash, BigInteger amount)
+        {
+            ExecutionEngine.Assert(assetHash.IsValid && !assetHash.IsZero, "Invalid asset hash");
+            ExecutionEngine.Assert(amount > 0, "Amount must be positive");
+
+            BigInteger balance = GetAssetBalance(assetHash);
+            ExecutionEngine.Assert(balance >= amount, "Insufficient balance");
+
+            UInt160 recipient = StorageGetOwner();
+            bool transferred = (bool)Contract.Call(
+                assetHash,
+                "transfer",
+                CallFlags.All,
+                new object[] { Runtime.ExecutingScriptHash, recipient, amount, null }
+            );
+            ExecutionEngine.Assert(transferred, "Claim transfer failed");
+            OnClaimed(assetHash, amount, recipient);
+        }
+
         // ── Config storage helpers ────────────────────────────────────────────
 
         private static ByteString StorageGetNefBytes()
@@ -290,6 +327,21 @@ namespace HushNetwork.Contracts
         [DisplayName("PlatformFeeRateUpdated")]
         public static event Action<BigInteger, BigInteger, BigInteger> OnPlatformFeeRateUpdated;
 
+        [DisplayName("CreationFeeUpdated")]
+        public static event Action<BigInteger, BigInteger> OnCreationFeeUpdated;
+
+        [DisplayName("OperationFeeUpdated")]
+        public static event Action<BigInteger, BigInteger> OnOperationFeeUpdated;
+
+        [DisplayName("PauseStateChanged")]
+        public static event Action<bool, bool> OnPauseStateChanged;
+
+        [DisplayName("TemplateUpgraded")]
+        public static event Action<UInt160, UInt160, BigInteger> OnTemplateUpgraded;
+
+        [DisplayName("Claimed")]
+        public static event Action<UInt160, BigInteger, UInt160> OnClaimed;
+
         // ── onNEP17Payment — factory entry point ──────────────────────────────
         // Triggered by GAS token transfer to this contract.
         // Validates payment, deploys TokenTemplate, writes registry, emits event.
@@ -310,7 +362,7 @@ namespace HushNetwork.Contracts
             if (data is null) return;
 
             // Guard 2: Factory not paused
-            ExecutionEngine.Assert(!StorageGetPaused(), "Factory is paused");
+            AssertFactoryActive();
 
             // Guard 3: Factory initialized (NEF bytes stored)
             ByteString nef = StorageGetNefBytes();
@@ -502,22 +554,19 @@ namespace HushNetwork.Contracts
 
         public static void SetNefAndManifest(ByteString nef, string manifest)
         {
-            ExecutionEngine.Assert(Runtime.CheckWitness(GetOwner()), "Unauthorized");
+            AssertOwnerAuthorized();
             ExecutionEngine.Assert(nef is not null, "NEF must not be empty");
             ExecutionEngine.Assert(nef.Length > 0, "NEF must not be empty");
             ExecutionEngine.Assert(manifest != null && manifest.Length > 0, "Manifest must not be empty");
+            StdLib.JsonDeserialize(manifest);
             StorageSetNefBytes(nef);
             StorageSetManifest(manifest);
-            ByteString identity = nef + (ByteString)manifest;
-            UInt160 templateHash = (UInt160)CryptoLib.Ripemd160(CryptoLib.Sha256(identity));
-            StorageSetTemplateHash(templateHash);
+            StorageSetTemplateHash(ComputeTemplateHash(nef, manifest));
         }
 
         public static void SetFee(BigInteger standardFeeDataoshi)
         {
-            ExecutionEngine.Assert(Runtime.CheckWitness(GetOwner()), "Unauthorized");
-            ExecutionEngine.Assert(standardFeeDataoshi > 0, "Fee must be positive");
-            StorageSetMinFee(standardFeeDataoshi);
+            SetCreationFee(standardFeeDataoshi);
         }
 
         public static void SetTreasuryAddress(UInt160 address)
@@ -535,21 +584,82 @@ namespace HushNetwork.Contracts
 
         public static void Pause()
         {
-            ExecutionEngine.Assert(Runtime.CheckWitness(GetOwner()), "Unauthorized");
-            StorageSetPaused(true);
+            SetPaused(true);
         }
 
         public static void Unpause()
         {
-            ExecutionEngine.Assert(Runtime.CheckWitness(GetOwner()), "Unauthorized");
-            StorageSetPaused(false);
+            SetPaused(false);
         }
 
         public static void SetUpdateFee(BigInteger newFee)
         {
-            ExecutionEngine.Assert(IsOwner(), "Unauthorized");
+            SetOperationFee(newFee);
+        }
+
+        public static void SetCreationFee(BigInteger newFee)
+        {
+            AssertOwnerAuthorized();
             ExecutionEngine.Assert(newFee >= 0, "Fee must be non-negative");
+
+            BigInteger oldFee = StorageGetMinFee();
+            StorageSetMinFee(newFee);
+            OnCreationFeeUpdated(oldFee, newFee);
+        }
+
+        public static void SetOperationFee(BigInteger newFee)
+        {
+            AssertOwnerAuthorized();
+            ExecutionEngine.Assert(newFee >= 0, "Fee must be non-negative");
+
+            BigInteger oldFee = StorageGetUpdateFee();
             StorageSetUpdateFee(newFee);
+            OnOperationFeeUpdated(oldFee, newFee);
+        }
+
+        public static void SetPaused(bool paused)
+        {
+            AssertOwnerAuthorized();
+
+            bool oldPaused = StorageGetPaused();
+            StorageSetPaused(paused);
+            OnPauseStateChanged(oldPaused, paused);
+        }
+
+        public static void UpgradeTemplate(ByteString nef, string manifest)
+        {
+            AssertOwnerAuthorized();
+            ExecutionEngine.Assert(nef is not null, "NEF must not be empty");
+            ExecutionEngine.Assert(nef.Length > 0, "NEF must not be empty");
+            ExecutionEngine.Assert(manifest != null && manifest.Length > 0, "Manifest must not be empty");
+
+            StdLib.JsonDeserialize(manifest);
+
+            UInt160 oldHash = StorageGetTemplateHash();
+            UInt160 newHash = ComputeTemplateHash(nef, manifest);
+            BigInteger newVersion = StorageGetTemplateVersion() + 1;
+
+            StorageSetNefBytes(nef);
+            StorageSetManifest(manifest);
+            StorageSetTemplateHash(newHash);
+            StorageSetTemplateVersion(newVersion);
+
+            OnTemplateUpgraded(oldHash, newHash, newVersion);
+        }
+
+        public static void ClaimAll(UInt160 assetHash)
+        {
+            AssertOwnerAuthorized();
+
+            BigInteger balance = GetAssetBalance(assetHash);
+            ExecutionEngine.Assert(balance > 0, "No balance to claim");
+            ClaimInternal(assetHash, balance);
+        }
+
+        public static void Claim(UInt160 assetHash, BigInteger amount)
+        {
+            AssertOwnerAuthorized();
+            ClaimInternal(assetHash, amount);
         }
 
         // ── FEAT-078: Token lifecycle methods ─────────────────────────────────
@@ -567,6 +677,7 @@ namespace HushNetwork.Contracts
 
         public static void MintTokens(UInt160 tokenHash, UInt160 to, BigInteger amount)
         {
+            AssertFactoryActive();
             object[] tokenInfo = StorageGetTokenInfo(tokenHash);
             ExecutionEngine.Assert(tokenInfo != null, "Token not found");
             UInt160 creator = (UInt160)tokenInfo[1];
@@ -585,6 +696,7 @@ namespace HushNetwork.Contracts
 
         public static void SetTokenBurnRate(UInt160 tokenHash, BigInteger bps)
         {
+            AssertFactoryActive();
             object[] tokenInfo = StorageGetTokenInfo(tokenHash);
             ExecutionEngine.Assert(tokenInfo != null, "Token not found");
             UInt160 creator = (UInt160)tokenInfo[1];
@@ -600,6 +712,7 @@ namespace HushNetwork.Contracts
 
         public static void SetTokenMaxSupply(UInt160 tokenHash, BigInteger newMax)
         {
+            AssertFactoryActive();
             object[] tokenInfo = StorageGetTokenInfo(tokenHash);
             ExecutionEngine.Assert(tokenInfo != null, "Token not found");
             UInt160 creator = (UInt160)tokenInfo[1];
@@ -614,6 +727,7 @@ namespace HushNetwork.Contracts
 
         public static void UpdateTokenMetadata(UInt160 tokenHash, string imageUrl)
         {
+            AssertFactoryActive();
             object[] tokenInfo = StorageGetTokenInfo(tokenHash);
             ExecutionEngine.Assert(tokenInfo != null, "Token not found");
             UInt160 creator = (UInt160)tokenInfo[1];
@@ -631,6 +745,7 @@ namespace HushNetwork.Contracts
 
         public static void SetCreatorFee(UInt160 tokenHash, BigInteger newRate)
         {
+            AssertFactoryActive();
             object[] tokenInfo = StorageGetTokenInfo(tokenHash);
             ExecutionEngine.Assert(tokenInfo != null, "Token not found");
             UInt160 creator = (UInt160)tokenInfo[1];
@@ -658,6 +773,7 @@ namespace HushNetwork.Contracts
 
         public static void ChangeTokenMode(UInt160 tokenHash, string newMode, object[] modeParams)
         {
+            AssertFactoryActive();
             object[] tokenInfo = StorageGetTokenInfo(tokenHash);
             ExecutionEngine.Assert(tokenInfo != null, "Token not found");
             UInt160 creator = (UInt160)tokenInfo[1];
@@ -683,6 +799,7 @@ namespace HushNetwork.Contracts
 
         public static void LockToken(UInt160 tokenHash)
         {
+            AssertFactoryActive();
             object[] tokenInfo = StorageGetTokenInfo(tokenHash);
             ExecutionEngine.Assert(tokenInfo != null, "Token not found");
             UInt160 creator = (UInt160)tokenInfo[1];
@@ -720,6 +837,7 @@ namespace HushNetwork.Contracts
             BigInteger mintAmount,
             bool lockToken)
         {
+            AssertFactoryActive();
             object[] tokenInfo = StorageGetTokenInfo(tokenHash);
             ExecutionEngine.Assert(tokenInfo != null, "Token not found");
 
@@ -816,7 +934,8 @@ namespace HushNetwork.Contracts
 
         public static void AuthorizeAllTokens(UInt160 newFactoryHash, BigInteger offset, BigInteger batchSize)
         {
-            ExecutionEngine.Assert(IsOwner(), "Unauthorized");
+            AssertOwnerAuthorized();
+            AssertFactoryActive();
             ExecutionEngine.Assert(newFactoryHash.IsValid && !newFactoryHash.IsZero, "Invalid factory hash");
             if (batchSize > 50) batchSize = 50;
             BigInteger total = StorageGetTotalTokenCount();
@@ -838,7 +957,8 @@ namespace HushNetwork.Contracts
 
         public static void SetAllTokensPlatformFee(BigInteger newRate, BigInteger offset, BigInteger batchSize)
         {
-            ExecutionEngine.Assert(IsOwner(), "Unauthorized");
+            AssertOwnerAuthorized();
+            AssertFactoryActive();
             ExecutionEngine.Assert(newRate >= 0, "Rate must be non-negative");
             if (batchSize > 50) batchSize = 50;
             BigInteger total = StorageGetTotalTokenCount();

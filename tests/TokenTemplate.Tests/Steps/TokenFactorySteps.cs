@@ -44,6 +44,7 @@ public class TokenFactorySteps
     // ── Task 5.4: Named token registry (lifecycle scenarios) and GAS tracking ──
     private readonly Dictionary<string, UInt160> _namedTokens = new();
     private BigInteger _factoryGasBefore = BigInteger.Zero;
+    private BigInteger _ownerGasBefore = BigInteger.Zero;
 
     public TokenFactorySteps(TestContext context)
     {
@@ -150,6 +151,12 @@ public class TokenFactorySteps
     {
         _context.Engine.SetTransactionSigners(_context.OwnerSigner);
         _context.Factory!.Pause();
+    }
+
+    [Given(@"the factory has collected (\d+) GAS")]
+    public void TheFactoryHasCollectedGas(long amount)
+    {
+        TransferGasToFactory(amount);
     }
 
     // ── Phase 6: GAS payment simulation steps (When) ─────────────────────────
@@ -274,6 +281,10 @@ public class TokenFactorySteps
     public void GetPremiumTiersEnabledIsCalled() =>
         _context.LastResult = _context.Factory!.GetPremiumTiersEnabled();
 
+    [When(@"getUpdateFee\(\) is called")]
+    public void GetUpdateFeeIsCalled() =>
+        _context.LastResult = _context.Factory!.GetUpdateFee();
+
     // ── Phase 6: Registry query steps (When) ─────────────────────────────────
 
     [When(@"getTokensByCreator for (\w+) page (\d+) size (\d+) is called")]
@@ -325,6 +336,38 @@ public class TokenFactorySteps
         }
     }
 
+    [When(@"(\w+) calls setCreationFee\((\d+)\)")]
+    public void WalletCallsSetCreationFee(string wallet, long fee)
+    {
+        var signer = GetOrCreateWallet(wallet);
+        _context.LastException = null;
+        try
+        {
+            _context.Engine.SetTransactionSigners(signer);
+            _context.Factory!.SetCreationFee((BigInteger)fee);
+        }
+        catch (Exception ex)
+        {
+            _context.LastException = ex;
+        }
+    }
+
+    [When(@"(\w+) calls setOperationFee\((\d+)\)")]
+    public void WalletCallsSetOperationFee(string wallet, long fee)
+    {
+        var signer = GetOrCreateWallet(wallet);
+        _context.LastException = null;
+        try
+        {
+            _context.Engine.SetTransactionSigners(signer);
+            _context.Factory!.SetOperationFee((BigInteger)fee);
+        }
+        catch (Exception ex)
+        {
+            _context.LastException = ex;
+        }
+    }
+
     [When(@"(\w+) calls pause\(\)")]
     public void WalletCallsPause(string wallet)
     {
@@ -350,6 +393,22 @@ public class TokenFactorySteps
         {
             _context.Engine.SetTransactionSigners(signer);
             _context.Factory!.Unpause();
+        }
+        catch (Exception ex)
+        {
+            _context.LastException = ex;
+        }
+    }
+
+    [When(@"(\w+) calls setPaused\((true|false)\)")]
+    public void WalletCallsSetPaused(string wallet, string paused)
+    {
+        var signer = GetOrCreateWallet(wallet);
+        _context.LastException = null;
+        try
+        {
+            _context.Engine.SetTransactionSigners(signer);
+            _context.Factory!.SetPaused(bool.Parse(paused));
         }
         catch (Exception ex)
         {
@@ -401,6 +460,60 @@ public class TokenFactorySteps
         {
             _context.Engine.SetTransactionSigners(signer);
             _context.Factory!.SetPremiumTiersEnabled(enabled);
+        }
+        catch (Exception ex)
+        {
+            _context.LastException = ex;
+        }
+    }
+
+    [When(@"(\w+) calls upgradeTemplate with the TokenTemplate artifacts")]
+    public void WalletCallsUpgradeTemplateWithTheTokenTemplateArtifacts(string wallet)
+    {
+        var signer = GetOrCreateWallet(wallet);
+        _context.LastException = null;
+        try
+        {
+            var nefBytes = File.ReadAllBytes(Path.Combine(ArtifactsPath, "TokenTemplate.nef"));
+            var manifestString = File.ReadAllText(Path.Combine(ArtifactsPath, "TokenTemplate.manifest.json"))
+                .Replace("\"name\":\"TokenTemplate\"", "\"name\":\"TokenTemplateV2\"");
+
+            _context.Engine.SetTransactionSigners(signer);
+            _context.Factory!.UpgradeTemplate(nefBytes, manifestString);
+        }
+        catch (Exception ex)
+        {
+            _context.LastException = ex;
+        }
+    }
+
+    [When(@"(\w+) claims (\d+) GAS from the factory")]
+    public void WalletClaimsGasFromTheFactory(string wallet, long amount)
+    {
+        var signer = GetOrCreateWallet(wallet);
+        _ownerGasBefore = GasBalanceOf(signer.Account);
+        _context.LastException = null;
+        try
+        {
+            _context.Engine.SetTransactionSigners(signer);
+            _context.Factory!.Claim(_context.Engine.Native.GAS.Hash, amount);
+        }
+        catch (Exception ex)
+        {
+            _context.LastException = ex;
+        }
+    }
+
+    [When(@"(\w+) claims all GAS from the factory")]
+    public void WalletClaimsAllGasFromTheFactory(string wallet)
+    {
+        var signer = GetOrCreateWallet(wallet);
+        _ownerGasBefore = GasBalanceOf(signer.Account);
+        _context.LastException = null;
+        try
+        {
+            _context.Engine.SetTransactionSigners(signer);
+            _context.Factory!.ClaimAll(_context.Engine.Native.GAS.Hash);
         }
         catch (Exception ex)
         {
@@ -599,6 +712,21 @@ public class TokenFactorySteps
                 $"Expected numeric result but got: {_context.LastResult?.GetType().Name ?? "null"}")
         };
         Assert.That(actual, Is.EqualTo(expectedValue));
+    }
+
+    [Then(@"the owner GAS balance increased by (\d+)")]
+    public void TheOwnerGasBalanceIncreasedBy(long expectedIncrease)
+    {
+        var current = GasBalanceOf(_context.OwnerSigner.Account);
+        Assert.That(current - _ownerGasBefore, Is.EqualTo((BigInteger)expectedIncrease));
+    }
+
+    [Then(@"the config template version is (\d+)")]
+    public void TheConfigTemplateVersionIs(long expectedVersion)
+    {
+        var config = _context.Factory!.GetConfig();
+        Assert.That(config, Is.Not.Null, "GetConfig returned null");
+        Assert.That(ParseBigInteger(config![5]), Is.EqualTo((BigInteger)expectedVersion));
     }
 
     // Note: (true|false) alternation is NOT supported by Reqnroll — use two literal steps.
@@ -1348,5 +1476,25 @@ public class TokenFactorySteps
                 lockToken);
         }
         catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    private void TransferGasToFactory(BigInteger datoshi)
+    {
+        foreach (var funder in new[] { _context.Engine.CommitteeAddress, _context.Engine.ValidatorsAddress })
+        {
+            var funderBalance = _context.Engine.Native.GAS.BalanceOf(funder) ?? BigInteger.Zero;
+            if (funderBalance < datoshi) continue;
+
+            var funderSigner = new Signer { Account = funder, Scopes = WitnessScope.Global };
+            _context.Engine.SetTransactionSigners(funderSigner);
+            var ok = _context.Engine.Native.GAS.Transfer(funder, _context.Factory!.Hash, datoshi, null);
+            if (ok == true) return;
+        }
+
+        var committeeBalance = _context.Engine.Native.GAS.BalanceOf(_context.Engine.CommitteeAddress) ?? BigInteger.Zero;
+        var validatorsBalance = _context.Engine.Native.GAS.BalanceOf(_context.Engine.ValidatorsAddress) ?? BigInteger.Zero;
+        Assert.Fail(
+            $"TransferGasToFactory({datoshi}) failed. " +
+            $"CommitteeBalance={committeeBalance}, ValidatorsBalance={validatorsBalance}");
     }
 }
