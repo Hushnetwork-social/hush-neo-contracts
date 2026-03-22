@@ -721,6 +721,13 @@ public class TokenFactorySteps
         Assert.That(current - _ownerGasBefore, Is.EqualTo((BigInteger)expectedIncrease));
     }
 
+    [Then(@"the factory GAS balance is (\d+)")]
+    public void TheFactoryGasBalanceIs(long expectedBalance)
+    {
+        var current = GasBalanceOf(_context.Factory!.Hash);
+        Assert.That(current, Is.EqualTo((BigInteger)expectedBalance));
+    }
+
     [Then(@"the config template version is (\d+)")]
     public void TheConfigTemplateVersionIs(long expectedVersion)
     {

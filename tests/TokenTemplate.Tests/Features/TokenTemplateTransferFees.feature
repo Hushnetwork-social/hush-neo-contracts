@@ -34,6 +34,15 @@ Feature: TokenTemplate — Transfer Fee System
     When walletA calls burn 1000
     Then totalSupply() is 99000
 
+  Scenario: Holder burn collects platform and creator GAS fees without recursive burn-rate tax
+    Given the contract is deployed with owner walletA, factory walletC, platformFeeRate 1000000, creatorFeeRate 500000, burn rate 200 bps, and initialSupply 0
+    And walletA mints 100000 tokens to walletB
+    When walletB burns 10000 tokens via burn()
+    Then walletB's token balance is 90000
+    And totalSupply() is 90000
+    And walletC's GAS balance increased by 1000000 datoshi from the transfer
+    And walletA's GAS balance increased by 500000 datoshi from the transfer
+
   # ── GAS platform fee ──────────────────────────────────────────────────────────
 
   Scenario: Direct transfer pulls platform GAS fee to factory
@@ -73,6 +82,34 @@ Feature: TokenTemplate — Transfer Fee System
     Then walletC's token balance is 990
     And totalSupply() is 99990
     And walletB's GAS balance increased by 1000000 datoshi from the transfer
+
+  Scenario: Transfer with burn, platform GAS fee, and creator GAS fee
+    Given the contract is deployed with owner walletA, factory walletC, platformFeeRate 1000000, creatorFeeRate 500000, burn rate 200 bps, and initialSupply 0
+    And walletA mints 100000 tokens to walletB
+    When walletB transfers 10000 tokens to walletD
+    Then walletD's token balance is 9800
+    And totalSupply() is 99800
+    And walletC's GAS balance increased by 1000000 datoshi from the transfer
+    And walletA's GAS balance increased by 500000 datoshi from the transfer
+
+  Scenario: Zero-config token charges no token taxes
+    Given the contract is deployed with owner walletA, factory walletC, platformFeeRate 0, creatorFeeRate 0, burn rate 0 bps, and initialSupply 0
+    And walletA mints 100000 tokens to walletB
+    When walletB transfers 1000 tokens to walletD
+    Then walletD's token balance is 1000
+    And totalSupply() is 100000
+    And walletC's GAS balance increased by 0 datoshi from the transfer
+    And walletA's GAS balance increased by 0 datoshi from the transfer
+
+  Scenario: Transfer with configured GAS taxes aborts when the holder has insufficient GAS
+    Given the contract is deployed with owner walletA, factory walletC, platformFeeRate 1000000, creatorFeeRate 500000, burn rate 200 bps, and initialSupply 0
+    And walletA mints 100000 tokens to walletB
+    When walletB transfers 10000 tokens to walletD without additional GAS funding
+    Then the transaction is aborted
+    And walletD's token balance remains 0
+    And totalSupply() is 100000
+    And walletC's GAS balance increased by 0 datoshi from the transfer
+    And walletA's GAS balance increased by 0 datoshi from the transfer
 
   Scenario: Factory MintByFactory is exempt from all fees
     Given the contract is deployed with owner walletA, factory walletB, platformFeeRate 1000000, burn rate 200 bps, and initialSupply 0

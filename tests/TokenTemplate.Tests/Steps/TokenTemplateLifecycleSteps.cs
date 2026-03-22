@@ -69,6 +69,16 @@ public class TokenTemplateLifecycleSteps
         return balance ?? BigInteger.Zero;
     }
 
+    private void CaptureGasBalancesBeforeTokenAction()
+    {
+        _gasBalanceBefore.Clear();
+        foreach (var (name, signer) in _context.NamedSigners)
+            _gasBalanceBefore[name] = GasBalanceOf(signer.Account);
+
+        var factoryAddr = _context.Contract?.getAuthorizedFactory() ?? UInt160.Zero;
+        _gasBalanceBefore["__factory"] = GasBalanceOf(factoryAddr);
+    }
+
     // ── Raw deploy helper (bypasses DeployParams.ToDeployArray() fallback) ────
 
     private void DeployContractRaw(object[] rawArgs)
@@ -377,6 +387,25 @@ public class TokenTemplateLifecycleSteps
         });
     }
 
+    [Given(@"the contract is deployed with owner walletA, factory walletC, platformFeeRate (\d+), creatorFeeRate (\d+), burn rate (\d+) bps, and initialSupply (\d+)")]
+    public void GivenDeployedWithFactoryWalletCPlatformCreatorAndBurnRate(long platformFee, long creatorFee, long bps, long supply)
+    {
+        _contractSteps.DeployWith(new DeployParams
+        {
+            Owner             = WalletAddress("walletA"),
+            AuthorizedFactory = WalletAddress("walletC"),
+            Mintable          = 1,
+            InitialSupply     = (BigInteger)supply,
+            PlatformFeeRate   = (BigInteger)platformFee,
+            CreatorFeeRate    = (BigInteger)creatorFee
+        });
+
+        _context.Engine.SetTransactionSigners(GetOrCreateWallet("walletA"));
+        _context.Engine.OnGetCallingScriptHash = (_, _) => WalletAddress("walletC");
+        try { _context.Contract!.SetBurnRate((BigInteger)bps); }
+        finally { _context.Engine.OnGetCallingScriptHash = null; }
+    }
+
     [Given(@"the contract is deployed with owner walletA, factory walletB, platformFeeRate (\d+), burn rate (\d+) bps, and initialSupply (\d+)")]
     public void GivenDeployedWithFactoryAndBurnRateAndPlatformFee(long platformFee, long bps, long supply)
     {
@@ -420,11 +449,11 @@ public class TokenTemplateLifecycleSteps
         });
     }
 
-    [Given(@"walletA mints (\d+) tokens to walletB")]
-    public void GivenWalletAMints(long amount)
+    [Given(@"walletA mints (\d+) tokens to (\w+)")]
+    public void GivenWalletAMints(long amount, string toWallet)
     {
         _context.Engine.SetTransactionSigners(GetOrCreateWallet("walletA"));
-        _context.Contract!.mint(WalletAddress("walletB"), (BigInteger)amount);
+        _context.Contract!.mint(WalletAddress(toWallet), (BigInteger)amount);
     }
 
     // ── Task 5.3: GAS funding helper ────────────────────────────────────────────
@@ -458,19 +487,36 @@ public class TokenTemplateLifecycleSteps
 
     // ── Task 5.3: Transfer steps ────────────────────────────────────────────────
 
+    private void SetWalletGasBalance(UInt160 walletAddress, BigInteger targetDatoshi)
+    {
+        var currentBalance = GasBalanceOf(walletAddress);
+        if (currentBalance == targetDatoshi) return;
+
+        if (currentBalance < targetDatoshi)
+        {
+            FundWalletWithGas(walletAddress, targetDatoshi - currentBalance);
+            return;
+        }
+
+        var signer = new Signer { Account = walletAddress, Scopes = WitnessScope.Global };
+        _context.Engine.SetTransactionSigners(signer);
+        var success = _context.Engine.Native.GAS.Transfer(
+            walletAddress,
+            _context.Engine.CommitteeAddress,
+            currentBalance - targetDatoshi,
+            null);
+        Assert.That(success, Is.True, $"Failed to reduce wallet GAS balance to {targetDatoshi} datoshi");
+    }
+
     [When(@"(\w+) transfers (\d+) tokens to (\w+)")]
     public void WalletXTransfersToWalletY(string fromWallet, long amount, string toWallet)
     {
         // Pre-fund the sender with enough native GAS to pay platform/creator fees.
-        // TestEngine wallets start with 0 GAS; without this, GAS.Transfer returns false silently.
-        FundWalletWithGas(WalletAddress(fromWallet), 500_000_000); // 5 GAS — covers any fee config
+        // FEAT-093 requires configured GAS taxes to fail atomically when the sender is underfunded.
+        FundWalletWithGas(WalletAddress(fromWallet), 500_000_000); // 5 GAS - covers any fee config
 
         // Capture GAS balances BEFORE the transfer for delta assertions.
-        _gasBalanceBefore.Clear();
-        foreach (var (name, signer) in _context.NamedSigners)
-            _gasBalanceBefore[name] = GasBalanceOf(signer.Account);
-        var factoryAddr = _context.Contract?.getAuthorizedFactory() ?? UInt160.Zero;
-        _gasBalanceBefore["__factory"] = GasBalanceOf(factoryAddr);
+        CaptureGasBalancesBeforeTokenAction();
 
         // Use WitnessScope.Global so CheckWitness(from) returns true inside nested GAS.Transfer calls.
         // CalledByEntry only covers the entry contract; the GAS native's CheckWitness check is one level deeper.
@@ -485,15 +531,42 @@ public class TokenTemplateLifecycleSteps
         catch (Exception ex) { _context.LastException = ex; }
     }
 
+    [When(@"(\w+) transfers (\d+) tokens to (\w+) without additional GAS funding")]
+    public void WalletXTransfersWithoutAdditionalGasFunding(string fromWallet, long amount, string toWallet)
+    {
+        SetWalletGasBalance(WalletAddress(fromWallet), 0);
+        CaptureGasBalancesBeforeTokenAction();
+
+        var fromSigner = GetOrCreateWallet(fromWallet);
+        _context.Engine.SetTransactionSigners(new Signer { Account = fromSigner.Account, Scopes = WitnessScope.Global });
+        _context.LastException = null;
+        try
+        {
+            _context.Contract!.Transfer(
+                WalletAddress(fromWallet), WalletAddress(toWallet), (BigInteger)amount, null);
+        }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [When(@"(\w+) burns (\d+) tokens via burn\(\)")]
+    public void WalletBurnsTokensViaBurn(string wallet, long amount)
+    {
+        FundWalletWithGas(WalletAddress(wallet), 500_000_000); // 5 GAS - covers any fee config
+        CaptureGasBalancesBeforeTokenAction();
+
+        var signer = GetOrCreateWallet(wallet);
+        _context.Engine.SetTransactionSigners(new Signer { Account = signer.Account, Scopes = WitnessScope.Global });
+        _context.LastException = null;
+        try { _context.Contract!.burn((BigInteger)amount); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
     [When(@"the authorized factory mints (\d+) tokens to (\w+)")]
     public void AuthorizedFactoryMintsTokens(long amount, string toWallet)
     {
         // Capture GAS balances BEFORE the mint.
-        _gasBalanceBefore.Clear();
-        foreach (var (name, signer) in _context.NamedSigners)
-            _gasBalanceBefore[name] = GasBalanceOf(signer.Account);
+        CaptureGasBalancesBeforeTokenAction();
         var factoryAddr = _context.Contract?.getAuthorizedFactory() ?? UInt160.Zero;
-        _gasBalanceBefore["__factory"] = GasBalanceOf(factoryAddr);
 
         _context.Engine.SetTransactionSigners(GetOrCreateWallet("walletA"));
         _context.LastException = null;
@@ -525,6 +598,13 @@ public class TokenTemplateLifecycleSteps
     }
 
     // ── Task 5.3: GAS balance delta assertions ──────────────────────────────────
+
+    [Then(@"(\w+)'s token balance remains (\d+)")]
+    public void ThenWalletTokenBalanceRemains(string wallet, long expected)
+    {
+        Assert.That(_context.Contract!.BalanceOf(WalletAddress(wallet)),
+            Is.EqualTo((BigInteger)expected));
+    }
 
     [Then(@"(\w+)'s GAS balance increased by (\d+) datoshi from the transfer")]
     public void ThenWalletGasBalanceIncreasedBy(string wallet, long expectedDelta)

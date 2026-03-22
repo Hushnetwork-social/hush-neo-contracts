@@ -390,14 +390,20 @@ namespace Neo.SmartContract.Template
                 {
                     BigInteger platformFee = StorageGetPlatformFeeRate();
                     if (platformFee > 0)
-                        GAS.Transfer(from, StorageGetAuthorizedFactory(), platformFee, null);
+                    {
+                        bool platformTransferred = GAS.Transfer(from, StorageGetAuthorizedFactory(), platformFee, null);
+                        ExecutionEngine.Assert(platformTransferred, "Platform fee transfer failed");
+                    }
 
                     BigInteger creatorFee = StorageGetCreatorFeeRate();
                     if (creatorFee > 0)
                     {
                         UInt160 owner = StorageGetOwner();
                         if (owner != UInt160.Zero)
-                            GAS.Transfer(from, owner, creatorFee, null);
+                        {
+                            bool creatorTransferred = GAS.Transfer(from, owner, creatorFee, null);
+                            ExecutionEngine.Assert(creatorTransferred, "Creator fee transfer failed");
+                        }
                     }
                 }
 
@@ -431,7 +437,7 @@ namespace Neo.SmartContract.Template
         }
 
         // Any token holder can burn their own tokens.
-        // Routes through Transfer() so GAS fees are collected; token burn rate is NOT applied (to == 0).
+        // Routes through Transfer() so platform/creator GAS fees are collected; token burn rate is NOT applied (to == 0).
         public static void burn(BigInteger amount)
         {
             ExecutionEngine.Assert(amount > 0, "Amount must be positive");
