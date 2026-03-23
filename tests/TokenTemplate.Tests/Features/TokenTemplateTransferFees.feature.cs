@@ -594,8 +594,8 @@ namespace TokenTemplate.Tests.Features
   await this.FeatureBackgroundAsync();
 #line hidden
 #line 81
-    await testRunner.GivenAsync("the contract is deployed with owner walletA, creatorFeeRate 500000, and initialSu" +
-                        "pply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, real factory walletC, creatorFeeRate" +
+                        " 500000, and initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 82
     await testRunner.AndAsync("walletA mints 100000 tokens to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
@@ -610,7 +610,7 @@ namespace TokenTemplate.Tests.Features
     await testRunner.AndAsync("walletA claims 250000 creator-fee GAS from the token", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 86
-    await testRunner.ThenAsync("walletA\'s GAS balance increased by 250000 datoshi from the claim", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("factory\'s GAS balance increased by 50000000 datoshi from the claim", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
 #line 87
     await testRunner.AndAsync("getClaimableCreatorFee() returns 750000", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
@@ -643,8 +643,8 @@ namespace TokenTemplate.Tests.Features
   await this.FeatureBackgroundAsync();
 #line hidden
 #line 90
-    await testRunner.GivenAsync("the contract is deployed with owner walletA, creatorFeeRate 500000, and initialSu" +
-                        "pply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, real factory walletC, creatorFeeRate" +
+                        " 500000, and initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 91
     await testRunner.AndAsync("walletA mints 100000 tokens to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
@@ -656,7 +656,7 @@ namespace TokenTemplate.Tests.Features
     await testRunner.AndAsync("walletA claims all creator-fee GAS from the token", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 94
-    await testRunner.ThenAsync("walletA\'s GAS balance increased by 500000 datoshi from the claim", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("factory\'s GAS balance increased by 50000000 datoshi from the claim", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
 #line 95
     await testRunner.AndAsync("getClaimableCreatorFee() returns 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");

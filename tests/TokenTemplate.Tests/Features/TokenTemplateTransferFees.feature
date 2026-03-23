@@ -78,20 +78,20 @@ Feature: TokenTemplate - Transfer Fee System
     And getClaimableCreatorFee() returns 500000
 
   Scenario: Creator can partially claim accrued creator fees and leave the remainder
-    Given the contract is deployed with owner walletA, creatorFeeRate 500000, and initialSupply 0
+    Given the contract is deployed with owner walletA, real factory walletC, creatorFeeRate 500000, and initialSupply 0
     And walletA mints 100000 tokens to walletB
     When walletB transfers 10000 tokens to walletC
     And walletB transfers 10000 tokens to walletD
     And walletA claims 250000 creator-fee GAS from the token
-    Then walletA's GAS balance increased by 250000 datoshi from the claim
+    Then factory's GAS balance increased by 50000000 datoshi from the claim
     And getClaimableCreatorFee() returns 750000
 
   Scenario: Creator can claim all remaining accrued creator fees
-    Given the contract is deployed with owner walletA, creatorFeeRate 500000, and initialSupply 0
+    Given the contract is deployed with owner walletA, real factory walletC, creatorFeeRate 500000, and initialSupply 0
     And walletA mints 100000 tokens to walletB
     When walletB transfers 10000 tokens to walletC
     And walletA claims all creator-fee GAS from the token
-    Then walletA's GAS balance increased by 500000 datoshi from the claim
+    Then factory's GAS balance increased by 50000000 datoshi from the claim
     And getClaimableCreatorFee() returns 0
 
   Scenario: Transfer with burn and platform GAS fee

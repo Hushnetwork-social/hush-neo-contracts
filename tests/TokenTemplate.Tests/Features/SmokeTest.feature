@@ -13,4 +13,4 @@ Feature: TokenTemplate — Smoke Test
   Scenario: Measure GAS cost of TokenTemplate deployment
     Given the TokenTemplate test engine is initialized
     When the contract is deployed with symbol "TST" and decimals 8
-    Then the GAS consumed by deployment is 1087082170 datoshi
+    Then the GAS consumed by deployment is 1254828610 datoshi

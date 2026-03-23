@@ -94,6 +94,21 @@ public class TokenTemplateLifecycleSteps
         _context.GasConsumedByLastDeploy = watcher.Value;
     }
 
+    private void DeployFactoryContract(UInt160 ownerAddress)
+    {
+        var nefPath      = Path.Combine(ArtifactsPath, "TokenFactory.nef");
+        var manifestPath = Path.Combine(ArtifactsPath, "TokenFactory.manifest.json");
+
+        Assert.That(File.Exists(nefPath), Is.True, $"TokenFactory NEF not found: {nefPath}");
+        Assert.That(File.Exists(manifestPath), Is.True, $"TokenFactory manifest not found: {manifestPath}");
+
+        var nef      = Neo.SmartContract.NefFile.Parse(File.ReadAllBytes(nefPath));
+        var manifest = ContractManifest.Parse(File.ReadAllText(manifestPath));
+
+        _context.Engine.SetTransactionSigners(_context.OwnerSigner);
+        _context.Factory = _context.Engine.Deploy<TokenFactoryContract>(nef, manifest, ownerAddress);
+    }
+
     // ── Factory setter call helper ─────────────────────────────────────────────
     // Reads the current authorizedFactory from storage and mocks CallingScriptHash to it.
 
@@ -396,6 +411,21 @@ public class TokenTemplateLifecycleSteps
         });
     }
 
+    [Given(@"the contract is deployed with owner walletA, real factory (\w+), creatorFeeRate (\d+), and initialSupply (\d+)")]
+    public void GivenDeployedWithRealFactoryForCreatorClaims(string factoryWallet, long creatorFee, long supply)
+    {
+        DeployFactoryContract(WalletAddress(factoryWallet));
+
+        _contractSteps.DeployWith(new DeployParams
+        {
+            Owner             = WalletAddress("walletA"),
+            AuthorizedFactory = _context.Factory!.Hash,
+            Mintable          = 1,
+            InitialSupply     = (BigInteger)supply,
+            CreatorFeeRate    = (BigInteger)creatorFee
+        });
+    }
+
     [Given(@"the contract is deployed with owner walletA, factory walletC, platformFeeRate (\d+), creatorFeeRate (\d+), burn rate (\d+) bps, and initialSupply (\d+)")]
     public void GivenDeployedWithFactoryWalletCPlatformCreatorAndBurnRate(long platformFee, long creatorFee, long bps, long supply)
     {
@@ -573,6 +603,7 @@ public class TokenTemplateLifecycleSteps
     [When(@"(\w+) claims (\d+) creator-fee GAS from the token")]
     public void WalletClaimsCreatorFeeGasFromTheToken(string wallet, long amount)
     {
+        FundWalletWithGas(WalletAddress(wallet), 500_000_000); // 5 GAS - covers creator-claim operation fee
         CaptureGasBalancesBeforeTokenAction();
 
         var signer = GetOrCreateWallet(wallet);
@@ -585,6 +616,7 @@ public class TokenTemplateLifecycleSteps
     [When(@"(\w+) claims all creator-fee GAS from the token")]
     public void WalletClaimsAllCreatorFeeGasFromTheToken(string wallet)
     {
+        FundWalletWithGas(WalletAddress(wallet), 500_000_000); // 5 GAS - covers creator-claim operation fee
         CaptureGasBalancesBeforeTokenAction();
 
         var signer = GetOrCreateWallet(wallet);
@@ -677,10 +709,22 @@ public class TokenTemplateLifecycleSteps
     [Then(@"(\w+)'s GAS balance increased by (\d+) datoshi from the claim")]
     public void ThenWalletGasBalanceIncreasedByFromTheClaim(string wallet, long expectedDelta)
     {
-        var currentBalance = GasBalanceOf(WalletAddress(wallet));
-        var beforeBalance = _gasBalanceBefore.TryGetValue(wallet, out var cached)
-            ? cached
-            : BigInteger.Zero;
+        BigInteger currentBalance;
+        BigInteger beforeBalance;
+
+        if (wallet == "factory" || wallet == "__factory")
+        {
+            var factoryAddr = _context.Contract!.getAuthorizedFactory() ?? UInt160.Zero;
+            currentBalance = GasBalanceOf(factoryAddr);
+            beforeBalance  = _gasBalanceBefore.TryGetValue("__factory", out var b) ? b : 0;
+        }
+        else
+        {
+            currentBalance = GasBalanceOf(WalletAddress(wallet));
+            beforeBalance = _gasBalanceBefore.TryGetValue(wallet, out var cached)
+                ? cached
+                : BigInteger.Zero;
+        }
 
         Assert.That(currentBalance - beforeBalance, Is.EqualTo((BigInteger)expectedDelta),
             $"Expected {wallet}'s claim GAS delta to be {expectedDelta} datoshi, actual delta = {currentBalance - beforeBalance}");

@@ -179,6 +179,20 @@ namespace Neo.SmartContract.Template
         private static void StorageSetOwner(UInt160 value) =>
             Storage.Put(new[] { Prefix_Owner }, value);
 
+        private static BigInteger GetFactoryOperationFeeOrZero()
+        {
+            UInt160 factory = StorageGetAuthorizedFactory();
+            if (!factory.IsValid || factory.IsZero)
+                return 0;
+
+            Contract factoryContract = ContractManagement.GetContract(factory);
+            if (factoryContract is null)
+                return 0;
+
+            object raw = Contract.Call(factory, "getUpdateFee", CallFlags.ReadOnly, Array.Empty<object>());
+            return raw is null ? 0 : (BigInteger)raw;
+        }
+
         // ── Owner ─────────────────────────────────────────────────────────────
 
         [Safe]
@@ -556,6 +570,18 @@ namespace Neo.SmartContract.Template
 
             BigInteger claimable = StorageGetCreatorClaimable();
             ExecutionEngine.Assert(claimable >= amount, "Insufficient creator fee balance");
+
+            BigInteger operationFee = GetFactoryOperationFeeOrZero();
+            if (operationFee > 0)
+            {
+                bool operationFeeTransferred = GAS.Transfer(
+                    claimant,
+                    StorageGetAuthorizedFactory(),
+                    operationFee,
+                    null
+                );
+                ExecutionEngine.Assert(operationFeeTransferred, "Creator fee claim operation fee transfer failed");
+            }
 
             bool transferred = GAS.Transfer(Runtime.ExecutingScriptHash, claimant, amount, null);
             ExecutionEngine.Assert(transferred, "Creator fee claim transfer failed");
