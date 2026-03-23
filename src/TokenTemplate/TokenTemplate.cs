@@ -265,6 +265,59 @@ namespace Neo.SmartContract.Template
         [Safe]
         public static UInt160 getCreatorClaimant() => StorageGetCreatorClaimant();
 
+        [Safe]
+        public static object[] quoteTransfer(UInt160 from, UInt160 to, BigInteger amount)
+        {
+            BigInteger grossAmount = amount < 0 ? 0 : amount;
+            bool isMint = from == UInt160.Zero;
+            bool isDirectBurn = !isMint && to == UInt160.Zero;
+
+            BigInteger platformFee = BigInteger.Zero;
+            BigInteger creatorFee = BigInteger.Zero;
+            if (!isMint)
+            {
+                platformFee = StorageGetPlatformFeeRate();
+                if (StorageGetCreatorClaimant() != UInt160.Zero)
+                    creatorFee = StorageGetCreatorFeeRate();
+            }
+
+            BigInteger transferBurnAmount = BigInteger.Zero;
+            BigInteger totalTokenBurned = BigInteger.Zero;
+            BigInteger recipientAmount = grossAmount;
+
+            if (isDirectBurn)
+            {
+                recipientAmount = BigInteger.Zero;
+                totalTokenBurned = grossAmount;
+            }
+            else if (!isMint && grossAmount > 0)
+            {
+                BigInteger burnRate = StorageGetBurnRate();
+                if (burnRate > 0)
+                {
+                    transferBurnAmount = grossAmount * burnRate / 10000;
+                    if (transferBurnAmount > 0)
+                    {
+                        recipientAmount -= transferBurnAmount;
+                        totalTokenBurned = transferBurnAmount;
+                    }
+                }
+            }
+
+            return new object[]
+            {
+                grossAmount,
+                recipientAmount,
+                transferBurnAmount,
+                totalTokenBurned,
+                platformFee,
+                creatorFee,
+                platformFee + creatorFee,
+                isMint ? BigInteger.One : BigInteger.Zero,
+                isDirectBurn ? BigInteger.One : BigInteger.Zero
+            };
+        }
+
         // ── Factory lifecycle setters (FEAT-078) ──────────────────────────────
         // Guard pattern for all setters below:
         //   1. Assert !StorageGetLocked()                                    — cheapest check first
