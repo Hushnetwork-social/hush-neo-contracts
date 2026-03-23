@@ -38,6 +38,8 @@ namespace Neo.SmartContract.Template
         private const byte Prefix_PlatformFeeRate   = 0x1b; // FEAT-078: BigInteger (datoshi) — per-transfer fee to factory
         private const byte Prefix_CreatorFeeRate    = 0x1c; // FEAT-078: BigInteger (datoshi) — per-transfer fee to creator
         private const byte Prefix_BurnRate          = 0x1d; // FEAT-078: BigInteger (basis points 0–1000) — tokens burned per transfer
+        private const byte Prefix_CreatorClaimable  = 0x1e; // FEAT-093 delta: BigInteger (datoshi) — creator fees accrued in contract
+        private const byte Prefix_CreatorClaimant   = 0x1f; // FEAT-093 delta: UInt160 — original creator allowed to claim accrued fees
         private const byte Prefix_Owner             = 0xff;
 
         // ── Private storage helpers ───────────────────────────────────────────
@@ -151,6 +153,27 @@ namespace Neo.SmartContract.Template
         private static void StorageSetBurnRate(BigInteger value) =>
             Storage.Put(new[] { Prefix_BurnRate }, value);
 
+        private static BigInteger StorageGetCreatorClaimable()
+        {
+            ByteString raw = Storage.Get(new[] { Prefix_CreatorClaimable });
+            return raw is null ? 0 : (BigInteger)raw;
+        }
+        private static void StorageSetCreatorClaimable(BigInteger value)
+        {
+            if (value > 0)
+                Storage.Put(new[] { Prefix_CreatorClaimable }, value);
+            else
+                Storage.Delete(new[] { Prefix_CreatorClaimable });
+        }
+
+        private static UInt160 StorageGetCreatorClaimant()
+        {
+            ByteString raw = Storage.Get(new[] { Prefix_CreatorClaimant });
+            return raw is null ? UInt160.Zero : (UInt160)raw;
+        }
+        private static void StorageSetCreatorClaimant(UInt160 value) =>
+            Storage.Put(new[] { Prefix_CreatorClaimant }, value);
+
         private static UInt160 StorageGetOwner() =>
             (UInt160)Storage.Get(new[] { Prefix_Owner });
         private static void StorageSetOwner(UInt160 value) =>
@@ -236,6 +259,12 @@ namespace Neo.SmartContract.Template
         [Safe]
         public static BigInteger getBurnRate() => StorageGetBurnRate();
 
+        [Safe]
+        public static BigInteger getClaimableCreatorFee() => StorageGetCreatorClaimable();
+
+        [Safe]
+        public static UInt160 getCreatorClaimant() => StorageGetCreatorClaimant();
+
         // ── Factory lifecycle setters (FEAT-078) ──────────────────────────────
         // Guard pattern for all setters below:
         //   1. Assert !StorageGetLocked()                                    — cheapest check first
@@ -270,6 +299,11 @@ namespace Neo.SmartContract.Template
 
         [DisplayName("FactoryAuthorized")]
         public static event OnFactoryAuthorizedDelegate OnFactoryAuthorized;
+
+        public delegate void OnCreatorFeesClaimedDelegate(UInt160 claimant, BigInteger amount, ulong timestamp);
+
+        [DisplayName("CreatorFeesClaimed")]
+        public static event OnCreatorFeesClaimedDelegate OnCreatorFeesClaimed;
 
         // Sets the per-transfer token burn rate in basis points. 100 = 1%, 1000 = 10% (max).
         public static void SetBurnRate(BigInteger bps)
@@ -368,9 +402,10 @@ namespace Neo.SmartContract.Template
 
         public override byte Decimals { [Safe] get => StorageGetDecimals(); }
 
-        // Transfer applies the three-component fee system (FEAT-078):
+        // Transfer applies the three-component fee system (FEAT-078 / FEAT-093):
         //   1. Platform GAS fee → authorizedFactory  (if platformFeeRate > 0 and CheckWitness(from))
-        //   2. Creator GAS fee  → owner              (if creatorFeeRate > 0 and CheckWitness(from))
+        //   2. Creator GAS fee  → this contract      (if creatorFeeRate > 0 and CheckWitness(from))
+        //      Accrued creator fees are later claimed by the original creator claimant.
         //   3. Token burn       → address(0)          (if burnRate > 0 and normal non-mint transfer)
         //
         // Exemptions:
@@ -398,11 +433,12 @@ namespace Neo.SmartContract.Template
                     BigInteger creatorFee = StorageGetCreatorFeeRate();
                     if (creatorFee > 0)
                     {
-                        UInt160 owner = StorageGetOwner();
-                        if (owner != UInt160.Zero)
+                        UInt160 creatorClaimant = StorageGetCreatorClaimant();
+                        if (creatorClaimant != UInt160.Zero)
                         {
-                            bool creatorTransferred = GAS.Transfer(from, owner, creatorFee, null);
+                            bool creatorTransferred = GAS.Transfer(from, Runtime.ExecutingScriptHash, creatorFee, null);
                             ExecutionEngine.Assert(creatorTransferred, "Creator fee transfer failed");
+                            StorageSetCreatorClaimable(StorageGetCreatorClaimable() + creatorFee);
                         }
                     }
                 }
@@ -446,6 +482,33 @@ namespace Neo.SmartContract.Template
             ExecutionEngine.Assert(Runtime.CheckWitness(caller), "No Authorization");
             ExecutionEngine.Assert(BalanceOf(caller) >= amount, "Insufficient balance");
             ExecutionEngine.Assert(Transfer(caller, UInt160.Zero, amount, null), "Burn failed");
+        }
+
+        public static void claimCreatorFees()
+        {
+            ClaimCreatorFeesInternal(StorageGetCreatorClaimable());
+        }
+
+        public static void claimCreatorFee(BigInteger amount)
+        {
+            ClaimCreatorFeesInternal(amount);
+        }
+
+        private static void ClaimCreatorFeesInternal(BigInteger amount)
+        {
+            UInt160 claimant = StorageGetCreatorClaimant();
+            ExecutionEngine.Assert(claimant.IsValid && !claimant.IsZero, "Creator claimant not configured");
+            ExecutionEngine.Assert(Runtime.CheckWitness(claimant), "No Authorization");
+            ExecutionEngine.Assert(amount > 0, "Amount must be positive");
+
+            BigInteger claimable = StorageGetCreatorClaimable();
+            ExecutionEngine.Assert(claimable >= amount, "Insufficient creator fee balance");
+
+            bool transferred = GAS.Transfer(Runtime.ExecutingScriptHash, claimant, amount, null);
+            ExecutionEngine.Assert(transferred, "Creator fee claim transfer failed");
+
+            StorageSetCreatorClaimable(claimable - amount);
+            OnCreatorFeesClaimed(claimant, amount, Runtime.Time);
         }
 
         // Owner-only direct mint. Retained as creator fallback; does not collect fees.
@@ -494,7 +557,8 @@ namespace Neo.SmartContract.Template
         [DisplayName("onNEP17Payment")]
         public static void OnNEP17Payment(UInt160 from, BigInteger amount, object data)
         {
-            throw new InvalidOperationException("This contract does not accept token transfers.");
+            if (Runtime.CallingScriptHash != GAS.Hash)
+                throw new InvalidOperationException("Only GAS accepted.");
         }
 
         // ── Contract lifecycle ────────────────────────────────────────────────
@@ -560,6 +624,7 @@ namespace Neo.SmartContract.Template
             StorageSetAuthorizedFactory(authorizedFactory);
             StorageSetPlatformFeeRate(platformFeeRate);
             StorageSetCreatorFeeRate(creatorFeeRate);
+            StorageSetCreatorClaimant(owner);
             // locked=false, paused=false, burnRate=0: storage default (key absent = false/zero)
 
             StorageSetOwner(owner);

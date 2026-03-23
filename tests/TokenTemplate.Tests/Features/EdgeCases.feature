@@ -49,7 +49,7 @@ Feature: Edge Cases and Deployment Guards
 
   # ── Factory dependency guards ──────────────────────────────────────────────
 
-  Scenario: Contract rejects any incoming NEP-17 token transfer
+  Scenario: Contract rejects non-GAS incoming NEP-17 token transfer
     Given the TokenTemplate test engine is initialized
     And a freshly deployed TokenTemplate contract
     When a NEP-17 transfer is sent to the contract

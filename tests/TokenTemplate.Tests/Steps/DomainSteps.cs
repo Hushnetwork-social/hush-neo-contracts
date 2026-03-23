@@ -372,8 +372,9 @@ public class DomainSteps
     // ── Factory dependency guard steps ────────────────────────────────────────
 
     /// <summary>
-    /// Verifies that onNEP17Payment always throws — the template never holds tokens.
-    /// Critical for FEAT-070: the factory must not accidentally forward tokens to a deployed instance.
+    /// Verifies that non-GAS onNEP17Payment still throws.
+    /// FEAT-093 allows GAS to reach the token contract for creator-fee accrual, but other
+    /// token transfers must still be rejected.
     /// </summary>
     [When("a NEP-17 transfer is sent to the contract")]
     public void WhenNep17TransferSentToContract()

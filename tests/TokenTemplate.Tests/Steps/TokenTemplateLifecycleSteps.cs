@@ -77,6 +77,9 @@ public class TokenTemplateLifecycleSteps
 
         var factoryAddr = _context.Contract?.getAuthorizedFactory() ?? UInt160.Zero;
         _gasBalanceBefore["__factory"] = GasBalanceOf(factoryAddr);
+        _gasBalanceBefore["__contract"] = _context.Contract is null
+            ? BigInteger.Zero
+            : GasBalanceOf(_context.Contract.Hash);
     }
 
     // ── Raw deploy helper (bypasses DeployParams.ToDeployArray() fallback) ────
@@ -217,6 +220,12 @@ public class TokenTemplateLifecycleSteps
     public void ThenGetBurnRateReturns(long expected)
     {
         Assert.That(_context.Contract!.getBurnRate(), Is.EqualTo((BigInteger)expected));
+    }
+
+    [Then(@"getClaimableCreatorFee\(\) returns (\d+)")]
+    public void ThenGetClaimableCreatorFeeReturns(long expected)
+    {
+        Assert.That(_context.Contract!.getClaimableCreatorFee(), Is.EqualTo((BigInteger)expected));
     }
 
     // ── Task 5.2: Setup steps ───────────────────────────────────────────────────
@@ -561,6 +570,30 @@ public class TokenTemplateLifecycleSteps
         catch (Exception ex) { _context.LastException = ex; }
     }
 
+    [When(@"(\w+) claims (\d+) creator-fee GAS from the token")]
+    public void WalletClaimsCreatorFeeGasFromTheToken(string wallet, long amount)
+    {
+        CaptureGasBalancesBeforeTokenAction();
+
+        var signer = GetOrCreateWallet(wallet);
+        _context.Engine.SetTransactionSigners(new Signer { Account = signer.Account, Scopes = WitnessScope.Global });
+        _context.LastException = null;
+        try { _context.Contract!.claimCreatorFee((BigInteger)amount); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    [When(@"(\w+) claims all creator-fee GAS from the token")]
+    public void WalletClaimsAllCreatorFeeGasFromTheToken(string wallet)
+    {
+        CaptureGasBalancesBeforeTokenAction();
+
+        var signer = GetOrCreateWallet(wallet);
+        _context.Engine.SetTransactionSigners(new Signer { Account = signer.Account, Scopes = WitnessScope.Global });
+        _context.LastException = null;
+        try { _context.Contract!.claimCreatorFees(); }
+        catch (Exception ex) { _context.LastException = ex; }
+    }
+
     [When(@"the authorized factory mints (\d+) tokens to (\w+)")]
     public void AuthorizedFactoryMintsTokens(long amount, string toWallet)
     {
@@ -627,5 +660,29 @@ public class TokenTemplateLifecycleSteps
         Assert.That(currentBalance - beforeBalance, Is.EqualTo((BigInteger)expectedDelta),
             $"Expected {wallet}'s GAS balance to increase by {expectedDelta} datoshi, " +
             $"actual delta = {currentBalance - beforeBalance}");
+    }
+
+    [Then(@"the token contract's GAS balance increased by (\d+) datoshi from the transfer")]
+    public void ThenTokenContractGasBalanceIncreasedByFromTheTransfer(long expectedDelta)
+    {
+        var currentBalance = GasBalanceOf(_context.Contract!.Hash);
+        var beforeBalance = _gasBalanceBefore.TryGetValue("__contract", out var cached)
+            ? cached
+            : BigInteger.Zero;
+
+        Assert.That(currentBalance - beforeBalance, Is.EqualTo((BigInteger)expectedDelta),
+            $"Expected token contract GAS delta to be {expectedDelta} datoshi, actual delta = {currentBalance - beforeBalance}");
+    }
+
+    [Then(@"(\w+)'s GAS balance increased by (\d+) datoshi from the claim")]
+    public void ThenWalletGasBalanceIncreasedByFromTheClaim(string wallet, long expectedDelta)
+    {
+        var currentBalance = GasBalanceOf(WalletAddress(wallet));
+        var beforeBalance = _gasBalanceBefore.TryGetValue(wallet, out var cached)
+            ? cached
+            : BigInteger.Zero;
+
+        Assert.That(currentBalance - beforeBalance, Is.EqualTo((BigInteger)expectedDelta),
+            $"Expected {wallet}'s claim GAS delta to be {expectedDelta} datoshi, actual delta = {currentBalance - beforeBalance}");
     }
 }
