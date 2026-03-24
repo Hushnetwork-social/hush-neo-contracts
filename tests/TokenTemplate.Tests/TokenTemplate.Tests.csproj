@@ -23,26 +23,26 @@
   <ItemGroup>
     <!-- Compiled contract artifacts (built by src/TokenTemplate) -->
     <None Include="..\..\src\TokenTemplate\bin\sc\TokenTemplate.nef"
-          CopyToOutputDirectory="PreserveNewest"
+          CopyToOutputDirectory="Always"
           Link="artifacts\TokenTemplate.nef" />
     <None Include="..\..\src\TokenTemplate\bin\sc\TokenTemplate.manifest.json"
-          CopyToOutputDirectory="PreserveNewest"
+          CopyToOutputDirectory="Always"
           Link="artifacts\TokenTemplate.manifest.json" />
 
     <!-- TokenFactory contract artifacts (built by src/TokenFactory) -->
     <None Include="..\..\src\TokenFactory\bin\sc\TokenFactory.nef"
-          CopyToOutputDirectory="PreserveNewest"
+          CopyToOutputDirectory="Always"
           Link="artifacts\TokenFactory.nef" />
     <None Include="..\..\src\TokenFactory\bin\sc\TokenFactory.manifest.json"
-          CopyToOutputDirectory="PreserveNewest"
+          CopyToOutputDirectory="Always"
           Link="artifacts\TokenFactory.manifest.json" />
 
     <!-- SpikeDeploy contract artifacts (built by src/SpikeDeploy) -->
     <None Include="..\..\src\SpikeDeploy\bin\sc\SpikeDeploy.nef"
-          CopyToOutputDirectory="PreserveNewest"
+          CopyToOutputDirectory="Always"
           Link="artifacts\SpikeDeploy.nef" />
     <None Include="..\..\src\SpikeDeploy\bin\sc\SpikeDeploy.manifest.json"
-          CopyToOutputDirectory="PreserveNewest"
+          CopyToOutputDirectory="Always"
           Link="artifacts\SpikeDeploy.manifest.json" />
   </ItemGroup>
 

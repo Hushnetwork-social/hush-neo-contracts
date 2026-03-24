@@ -128,6 +128,15 @@ public abstract class TokenTemplateContract : SmartContract
     [DisplayName("getCreatorFeeRate")]
     public abstract BigInteger? getCreatorFeeRate();
 
+    [DisplayName("getClaimableCreatorFee")]
+    public abstract BigInteger? getClaimableCreatorFee();
+
+    [DisplayName("getCreatorClaimant")]
+    public abstract UInt160? getCreatorClaimant();
+
+    [DisplayName("quoteTransfer")]
+    public abstract object[]? quoteTransfer(UInt160? from, UInt160? to, BigInteger? amount);
+
     // ── FEAT-078: Factory-gated setters ───────────────────────────────────────
     // Require: !locked AND CallingScriptHash == authorizedFactory
 
@@ -151,4 +160,10 @@ public abstract class TokenTemplateContract : SmartContract
 
     [DisplayName("mintByFactory")]
     public abstract void MintByFactory(UInt160? to, BigInteger? amount);
+
+    [DisplayName("claimCreatorFees")]
+    public abstract void claimCreatorFees();
+
+    [DisplayName("claimCreatorFee")]
+    public abstract void claimCreatorFee(BigInteger? amount);
 }

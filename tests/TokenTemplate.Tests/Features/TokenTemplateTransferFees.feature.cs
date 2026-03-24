@@ -18,19 +18,19 @@ namespace TokenTemplate.Tests.Features
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Reqnroll", "3.0.0.0")]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     [global::NUnit.Framework.TestFixtureAttribute()]
-    [global::NUnit.Framework.DescriptionAttribute("TokenTemplate — Transfer Fee System")]
+    [global::NUnit.Framework.DescriptionAttribute("TokenTemplate - Transfer Fee System")]
     [global::NUnit.Framework.FixtureLifeCycleAttribute(global::NUnit.Framework.LifeCycle.InstancePerTestCase)]
-    public partial class TokenTemplateTransferFeeSystemFeature
+    public partial class TokenTemplate_TransferFeeSystemFeature
     {
         
         private global::Reqnroll.ITestRunner testRunner;
         
         private static string[] featureTags = ((string[])(null));
         
-        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "TokenTemplate — Transfer Fee System", @"  Verify the three-component fee system in Transfer() (FEAT-078):
+        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "TokenTemplate - Transfer Fee System", @"  Verify the three-component fee system in Transfer() (FEAT-078 / FEAT-093):
   1. Token burn (basis points deducted from amount, sent to address(0))
   2. Platform GAS fee (fixed datoshi to authorizedFactory per transfer)
-  3. Creator GAS fee (fixed datoshi to owner per transfer)
+  3. Creator GAS fee (fixed datoshi accrued in the token contract per transfer)
   All fees are skipped when from == address(0) (factory mint path).
   Token burn is skipped when to == address(0) (burn() call path).", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
         
@@ -119,7 +119,7 @@ namespace TokenTemplate.Tests.Features
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/TokenTemplateTransferFees.feature.ndjson", 19);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/TokenTemplateTransferFees.feature.ndjson", 26);
         }
         
         [global::NUnit.Framework.TestAttribute()]
@@ -132,7 +132,7 @@ namespace TokenTemplate.Tests.Features
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Transfer deducts burn rate from amount", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 14
+#line 12
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -145,17 +145,17 @@ namespace TokenTemplate.Tests.Features
 #line 9
   await this.FeatureBackgroundAsync();
 #line hidden
-#line 15
+#line 13
     await testRunner.GivenAsync("the contract is deployed with owner walletA, burn rate 200 bps, and initialSupply" +
                         " 100000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 16
+#line 14
     await testRunner.WhenAsync("walletA transfers 1000 tokens to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 17
+#line 15
     await testRunner.ThenAsync("walletB\'s token balance is 980", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 18
+#line 16
     await testRunner.AndAsync("totalSupply() is 99980", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -163,16 +163,16 @@ namespace TokenTemplate.Tests.Features
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Burn rate rounds to 0 for tiny amounts — no burn occurs")]
-        public async global::System.Threading.Tasks.Task BurnRateRoundsTo0ForTinyAmountsNoBurnOccurs()
+        [global::NUnit.Framework.DescriptionAttribute("Burn rate rounds to 0 for tiny amounts - no burn occurs")]
+        public async global::System.Threading.Tasks.Task BurnRateRoundsTo0ForTinyAmounts_NoBurnOccurs()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "1";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Burn rate rounds to 0 for tiny amounts — no burn occurs", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Burn rate rounds to 0 for tiny amounts - no burn occurs", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 20
+#line 18
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -185,17 +185,17 @@ namespace TokenTemplate.Tests.Features
 #line 9
   await this.FeatureBackgroundAsync();
 #line hidden
-#line 21
+#line 19
     await testRunner.GivenAsync("the contract is deployed with owner walletA, burn rate 1 bps, and initialSupply 1" +
                         "00000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 22
+#line 20
     await testRunner.WhenAsync("walletA transfers 50 tokens to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 23
+#line 21
     await testRunner.ThenAsync("walletB\'s token balance is 50", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 24
+#line 22
     await testRunner.AndAsync("totalSupply() is 100000", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -203,16 +203,16 @@ namespace TokenTemplate.Tests.Features
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Zero burn rate — full amount transferred")]
-        public async global::System.Threading.Tasks.Task ZeroBurnRateFullAmountTransferred()
+        [global::NUnit.Framework.DescriptionAttribute("Zero burn rate - full amount transferred")]
+        public async global::System.Threading.Tasks.Task ZeroBurnRate_FullAmountTransferred()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "2";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Zero burn rate — full amount transferred", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Zero burn rate - full amount transferred", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 26
+#line 24
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -225,17 +225,17 @@ namespace TokenTemplate.Tests.Features
 #line 9
   await this.FeatureBackgroundAsync();
 #line hidden
-#line 27
+#line 25
     await testRunner.GivenAsync("the contract is deployed with owner walletA, burn rate 0 bps, and initialSupply 1" +
                         "00000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 28
+#line 26
     await testRunner.WhenAsync("walletA transfers 1000 tokens to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 29
+#line 27
     await testRunner.ThenAsync("walletB\'s token balance is 1000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 30
+#line 28
     await testRunner.AndAsync("totalSupply() is 100000", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -243,16 +243,16 @@ namespace TokenTemplate.Tests.Features
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Burn from burn() call — burn rate NOT applied to burn itself")]
-        public async global::System.Threading.Tasks.Task BurnFromBurnCallBurnRateNOTAppliedToBurnItself()
+        [global::NUnit.Framework.DescriptionAttribute("Burn from burn() call - burn rate NOT applied to burn itself")]
+        public async global::System.Threading.Tasks.Task BurnFromBurnCall_BurnRateNOTAppliedToBurnItself()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "3";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Burn from burn() call — burn rate NOT applied to burn itself", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Burn from burn() call - burn rate NOT applied to burn itself", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 32
+#line 30
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -265,15 +265,69 @@ namespace TokenTemplate.Tests.Features
 #line 9
   await this.FeatureBackgroundAsync();
 #line hidden
-#line 33
+#line 31
     await testRunner.GivenAsync("the contract is deployed with owner walletA, burn rate 200 bps, and initialSupply" +
                         " 100000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 34
+#line 32
     await testRunner.WhenAsync("walletA calls burn 1000", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 35
+#line 33
     await testRunner.ThenAsync("totalSupply() is 99000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Holder burn collects platform and creator GAS fees without recursive burn-rate ta" +
+            "x")]
+        public async global::System.Threading.Tasks.Task HolderBurnCollectsPlatformAndCreatorGASFeesWithoutRecursiveBurn_RateTax()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "4";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Holder burn collects platform and creator GAS fees without recursive burn-rate ta" +
+                    "x", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 35
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 9
+  await this.FeatureBackgroundAsync();
+#line hidden
+#line 36
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletC, platformFeeRate 100" +
+                        "0000, creatorFeeRate 500000, burn rate 200 bps, and initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 37
+    await testRunner.AndAsync("walletA mints 100000 tokens to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 38
+    await testRunner.WhenAsync("walletB burns 10000 tokens via burn()", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 39
+    await testRunner.ThenAsync("walletB\'s token balance is 90000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 40
+    await testRunner.AndAsync("totalSupply() is 90000", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 41
+    await testRunner.AndAsync("walletC\'s GAS balance increased by 1000000 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 42
+    await testRunner.AndAsync("the token contract\'s GAS balance increased by 500000 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 43
+    await testRunner.AndAsync("getClaimableCreatorFee() returns 500000", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
@@ -285,11 +339,11 @@ namespace TokenTemplate.Tests.Features
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "4";
+            string pickleIndex = "5";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Direct transfer pulls platform GAS fee to factory", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 39
+#line 45
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -302,14 +356,14 @@ namespace TokenTemplate.Tests.Features
 #line 9
   await this.FeatureBackgroundAsync();
 #line hidden
-#line 40
+#line 46
     await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletB, platformFeeRate 100" +
                         "0000, and initialSupply 10000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 41
+#line 47
     await testRunner.WhenAsync("walletA transfers 100 tokens to walletC", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 42
+#line 48
     await testRunner.ThenAsync("walletB\'s GAS balance increased by 1000000 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -317,53 +371,16 @@ namespace TokenTemplate.Tests.Features
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Platform fee of 0 — no GAS transfer")]
-        public async global::System.Threading.Tasks.Task PlatformFeeOf0NoGASTransfer()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "5";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Platform fee of 0 — no GAS transfer", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
-            string[] tagsOfRule = ((string[])(null));
-            global::Reqnroll.RuleInfo ruleInfo = null;
-#line 44
-  this.ScenarioInitialize(scenarioInfo, ruleInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                await testRunner.SkipScenarioAsync();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 9
-  await this.FeatureBackgroundAsync();
-#line hidden
-#line 45
-    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletB, platformFeeRate 0, " +
-                        "and initialSupply 10000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 46
-    await testRunner.WhenAsync("walletA transfers 100 tokens to walletC", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 47
-    await testRunner.ThenAsync("walletB\'s GAS balance increased by 0 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Platform fee skipped when from == address(0) — factory mint path")]
-        public async global::System.Threading.Tasks.Task PlatformFeeSkippedWhenFromAddress0FactoryMintPath()
+        [global::NUnit.Framework.DescriptionAttribute("Platform fee of 0 - no GAS transfer")]
+        public async global::System.Threading.Tasks.Task PlatformFeeOf0_NoGASTransfer()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "6";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Platform fee skipped when from == address(0) — factory mint path", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Platform fee of 0 - no GAS transfer", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 49
+#line 50
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -376,14 +393,14 @@ namespace TokenTemplate.Tests.Features
 #line 9
   await this.FeatureBackgroundAsync();
 #line hidden
-#line 50
-    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletB, platformFeeRate 100" +
-                        "0000, and initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
 #line 51
-    await testRunner.WhenAsync("the authorized factory mints 1000 tokens to walletA", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletB, platformFeeRate 0, " +
+                        "and initialSupply 10000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 52
+    await testRunner.WhenAsync("walletA transfers 100 tokens to walletC", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 53
     await testRunner.ThenAsync("walletB\'s GAS balance increased by 0 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -391,16 +408,16 @@ namespace TokenTemplate.Tests.Features
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Direct transfer pulls creator GAS fee to owner")]
-        public async global::System.Threading.Tasks.Task DirectTransferPullsCreatorGASFeeToOwner()
+        [global::NUnit.Framework.DescriptionAttribute("Platform fee skipped when from == address(0) - factory mint path")]
+        public async global::System.Threading.Tasks.Task PlatformFeeSkippedWhenFromAddress0_FactoryMintPath()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "7";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Direct transfer pulls creator GAS fee to owner", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Platform fee skipped when from == address(0) - factory mint path", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 56
+#line 55
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -413,34 +430,31 @@ namespace TokenTemplate.Tests.Features
 #line 9
   await this.FeatureBackgroundAsync();
 #line hidden
+#line 56
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletB, platformFeeRate 100" +
+                        "0000, and initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
 #line 57
-    await testRunner.GivenAsync("the contract is deployed with owner walletA, creatorFeeRate 500000, and initialSu" +
-                        "pply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.WhenAsync("the authorized factory mints 1000 tokens to walletA", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 58
-    await testRunner.AndAsync("walletA mints 100000 tokens to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 59
-    await testRunner.WhenAsync("walletB transfers 10000 tokens to walletC", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 60
-    await testRunner.ThenAsync("walletA\'s GAS balance increased by 500000 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("walletB\'s GAS balance increased by 0 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Creator fee of 0 — no GAS transfer")]
-        public async global::System.Threading.Tasks.Task CreatorFeeOf0NoGASTransfer()
+        [global::NUnit.Framework.DescriptionAttribute("Direct transfer accrues creator GAS fee in the token contract")]
+        public async global::System.Threading.Tasks.Task DirectTransferAccruesCreatorGASFeeInTheTokenContract()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "8";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Creator fee of 0 — no GAS transfer", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Direct transfer accrues creator GAS fee in the token contract", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 62
+#line 60
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -453,18 +467,199 @@ namespace TokenTemplate.Tests.Features
 #line 9
   await this.FeatureBackgroundAsync();
 #line hidden
+#line 61
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, creatorFeeRate 500000, and initialSu" +
+                        "pply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 62
+    await testRunner.AndAsync("walletA mints 100000 tokens to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
 #line 63
+    await testRunner.WhenAsync("walletB transfers 10000 tokens to walletC", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 64
+    await testRunner.ThenAsync("the token contract\'s GAS balance increased by 500000 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 65
+    await testRunner.AndAsync("getClaimableCreatorFee() returns 500000", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Creator fee of 0 - no GAS transfer")]
+        public async global::System.Threading.Tasks.Task CreatorFeeOf0_NoGASTransfer()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "9";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Creator fee of 0 - no GAS transfer", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 67
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 9
+  await this.FeatureBackgroundAsync();
+#line hidden
+#line 68
     await testRunner.GivenAsync("the contract is deployed with owner walletA, creatorFeeRate 0, and initialSupply " +
                         "0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 64
+#line 69
     await testRunner.AndAsync("walletA mints 100000 tokens to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 65
+#line 70
     await testRunner.WhenAsync("walletB transfers 10000 tokens to walletC", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 66
-    await testRunner.ThenAsync("walletA\'s GAS balance increased by 0 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line 71
+    await testRunner.ThenAsync("the token contract\'s GAS balance increased by 0 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 72
+    await testRunner.AndAsync("getClaimableCreatorFee() returns 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Creator fee accrual remains visible when sender is also the creator")]
+        public async global::System.Threading.Tasks.Task CreatorFeeAccrualRemainsVisibleWhenSenderIsAlsoTheCreator()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "10";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Creator fee accrual remains visible when sender is also the creator", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 74
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 9
+  await this.FeatureBackgroundAsync();
+#line hidden
+#line 75
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, creatorFeeRate 500000, and initialSu" +
+                        "pply 100000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 76
+    await testRunner.WhenAsync("walletA transfers 10000 tokens to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 77
+    await testRunner.ThenAsync("the token contract\'s GAS balance increased by 500000 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 78
+    await testRunner.AndAsync("getClaimableCreatorFee() returns 500000", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Creator can partially claim accrued creator fees and leave the remainder")]
+        public async global::System.Threading.Tasks.Task CreatorCanPartiallyClaimAccruedCreatorFeesAndLeaveTheRemainder()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "11";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Creator can partially claim accrued creator fees and leave the remainder", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 80
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 9
+  await this.FeatureBackgroundAsync();
+#line hidden
+#line 81
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, real factory walletC, creatorFeeRate" +
+                        " 500000, and initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 82
+    await testRunner.AndAsync("walletA mints 100000 tokens to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 83
+    await testRunner.WhenAsync("walletB transfers 10000 tokens to walletC", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 84
+    await testRunner.AndAsync("walletB transfers 10000 tokens to walletD", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 85
+    await testRunner.AndAsync("walletA claims 250000 creator-fee GAS from the token", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 86
+    await testRunner.ThenAsync("factory\'s GAS balance increased by 50000000 datoshi from the claim", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 87
+    await testRunner.AndAsync("getClaimableCreatorFee() returns 750000", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Creator can claim all remaining accrued creator fees")]
+        public async global::System.Threading.Tasks.Task CreatorCanClaimAllRemainingAccruedCreatorFees()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "12";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Creator can claim all remaining accrued creator fees", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 89
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 9
+  await this.FeatureBackgroundAsync();
+#line hidden
+#line 90
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, real factory walletC, creatorFeeRate" +
+                        " 500000, and initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 91
+    await testRunner.AndAsync("walletA mints 100000 tokens to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 92
+    await testRunner.WhenAsync("walletB transfers 10000 tokens to walletC", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 93
+    await testRunner.AndAsync("walletA claims all creator-fee GAS from the token", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 94
+    await testRunner.ThenAsync("factory\'s GAS balance increased by 50000000 datoshi from the claim", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 95
+    await testRunner.AndAsync("getClaimableCreatorFee() returns 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
@@ -476,11 +671,11 @@ namespace TokenTemplate.Tests.Features
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "9";
+            string pickleIndex = "13";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Transfer with burn and platform GAS fee", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 70
+#line 97
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -493,20 +688,20 @@ namespace TokenTemplate.Tests.Features
 #line 9
   await this.FeatureBackgroundAsync();
 #line hidden
-#line 71
+#line 98
     await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletB, platformFeeRate 100" +
                         "0000, burn rate 100 bps, and initialSupply 100000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 72
+#line 99
     await testRunner.WhenAsync("walletA transfers 1000 tokens to walletC", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 73
+#line 100
     await testRunner.ThenAsync("walletC\'s token balance is 990", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 74
+#line 101
     await testRunner.AndAsync("totalSupply() is 99990", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 75
+#line 102
     await testRunner.AndAsync("walletB\'s GAS balance increased by 1000000 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -514,175 +709,16 @@ namespace TokenTemplate.Tests.Features
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Factory MintByFactory is exempt from all fees")]
-        public async global::System.Threading.Tasks.Task FactoryMintByFactoryIsExemptFromAllFees()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "10";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Factory MintByFactory is exempt from all fees", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
-            string[] tagsOfRule = ((string[])(null));
-            global::Reqnroll.RuleInfo ruleInfo = null;
-#line 77
-  this.ScenarioInitialize(scenarioInfo, ruleInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                await testRunner.SkipScenarioAsync();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 9
-  await this.FeatureBackgroundAsync();
-#line hidden
-#line 78
-    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletB, platformFeeRate 100" +
-                        "0000, burn rate 200 bps, and initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 79
-    await testRunner.WhenAsync("the authorized factory mints 1000 tokens to walletC", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 80
-    await testRunner.ThenAsync("walletC\'s token balance is 1000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-#line 81
-    await testRunner.AndAsync("totalSupply() is 1000", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 82
-    await testRunner.AndAsync("walletB\'s GAS balance increased by 0 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Paused token transfer is rejected")]
-        public async global::System.Threading.Tasks.Task PausedTokenTransferIsRejected()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "11";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Paused token transfer is rejected", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
-            string[] tagsOfRule = ((string[])(null));
-            global::Reqnroll.RuleInfo ruleInfo = null;
-#line 84
-  this.ScenarioInitialize(scenarioInfo, ruleInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                await testRunner.SkipScenarioAsync();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 9
-  await this.FeatureBackgroundAsync();
-#line hidden
-#line 85
-    await testRunner.GivenAsync("the contract is deployed with owner walletA, pausable true", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 86
-    await testRunner.AndAsync("the owner has paused the contract", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 87
-    await testRunner.WhenAsync("walletA transfers 100 tokens to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 88
-    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("MintByFactory increases balance without fees")]
-        public async global::System.Threading.Tasks.Task MintByFactoryIncreasesBalanceWithoutFees()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "12";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("MintByFactory increases balance without fees", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
-            string[] tagsOfRule = ((string[])(null));
-            global::Reqnroll.RuleInfo ruleInfo = null;
-#line 92
-  this.ScenarioInitialize(scenarioInfo, ruleInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                await testRunner.SkipScenarioAsync();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 9
-  await this.FeatureBackgroundAsync();
-#line hidden
-#line 93
-    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletB, platformFeeRate 100" +
-                        "0000, and initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 94
-    await testRunner.WhenAsync("the authorized factory mints 5000 tokens to walletA", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 95
-    await testRunner.ThenAsync("walletA\'s token balance is 5000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-#line 96
-    await testRunner.AndAsync("totalSupply() is 5000", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("MintByFactory blocked on non-mintable token")]
-        public async global::System.Threading.Tasks.Task MintByFactoryBlockedOnNon_MintableToken()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "13";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("MintByFactory blocked on non-mintable token", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
-            string[] tagsOfRule = ((string[])(null));
-            global::Reqnroll.RuleInfo ruleInfo = null;
-#line 98
-  this.ScenarioInitialize(scenarioInfo, ruleInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                await testRunner.SkipScenarioAsync();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 9
-  await this.FeatureBackgroundAsync();
-#line hidden
-#line 99
-    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletB, mintable false, and" +
-                        " initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 100
-    await testRunner.WhenAsync("the authorized factory mints 1000 tokens to walletA", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 101
-    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("MintByFactory blocked when locked")]
-        public async global::System.Threading.Tasks.Task MintByFactoryBlockedWhenLocked()
+        [global::NUnit.Framework.DescriptionAttribute("Transfer with burn, platform GAS fee, and creator GAS fee")]
+        public async global::System.Threading.Tasks.Task TransferWithBurnPlatformGASFeeAndCreatorGASFee()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "14";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("MintByFactory blocked when locked", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Transfer with burn, platform GAS fee, and creator GAS fee", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 103
+#line 104
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -695,68 +731,43 @@ namespace TokenTemplate.Tests.Features
 #line 9
   await this.FeatureBackgroundAsync();
 #line hidden
-#line 104
-    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletB, platformFeeRate 0, " +
-                        "and initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
 #line 105
-    await testRunner.AndAsync("the owner has locked the contract", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletC, platformFeeRate 100" +
+                        "0000, creatorFeeRate 500000, burn rate 200 bps, and initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 106
-    await testRunner.WhenAsync("the authorized factory mints 1000 tokens to walletA", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.AndAsync("walletA mints 100000 tokens to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 107
-    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.WhenAsync("walletB transfers 10000 tokens to walletD", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 108
+    await testRunner.ThenAsync("walletD\'s token balance is 9800", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 109
+    await testRunner.AndAsync("totalSupply() is 99800", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 110
+    await testRunner.AndAsync("walletC\'s GAS balance increased by 1000000 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 111
+    await testRunner.AndAsync("the token contract\'s GAS balance increased by 500000 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 112
+    await testRunner.AndAsync("getClaimableCreatorFee() returns 500000", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("MintByFactory blocked when maxSupply would be exceeded")]
-        public async global::System.Threading.Tasks.Task MintByFactoryBlockedWhenMaxSupplyWouldBeExceeded()
+        [global::NUnit.Framework.DescriptionAttribute("Zero-config token charges no token taxes")]
+        public async global::System.Threading.Tasks.Task Zero_ConfigTokenChargesNoTokenTaxes()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "15";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("MintByFactory blocked when maxSupply would be exceeded", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
-            string[] tagsOfRule = ((string[])(null));
-            global::Reqnroll.RuleInfo ruleInfo = null;
-#line 109
-  this.ScenarioInitialize(scenarioInfo, ruleInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                await testRunner.SkipScenarioAsync();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 9
-  await this.FeatureBackgroundAsync();
-#line hidden
-#line 110
-    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletB, maxSupply 1000, and" +
-                        " initialSupply 500", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 111
-    await testRunner.WhenAsync("the authorized factory mints 600 tokens to walletA", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 112
-    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Non-factory cannot call MintByFactory")]
-        public async global::System.Threading.Tasks.Task Non_FactoryCannotCallMintByFactory()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "16";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Non-factory cannot call MintByFactory", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Zero-config token charges no token taxes", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 114
@@ -773,13 +784,356 @@ namespace TokenTemplate.Tests.Features
   await this.FeatureBackgroundAsync();
 #line hidden
 #line 115
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletC, platformFeeRate 0, " +
+                        "creatorFeeRate 0, burn rate 0 bps, and initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 116
+    await testRunner.AndAsync("walletA mints 100000 tokens to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 117
+    await testRunner.WhenAsync("walletB transfers 1000 tokens to walletD", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 118
+    await testRunner.ThenAsync("walletD\'s token balance is 1000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 119
+    await testRunner.AndAsync("totalSupply() is 100000", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 120
+    await testRunner.AndAsync("walletC\'s GAS balance increased by 0 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 121
+    await testRunner.AndAsync("the token contract\'s GAS balance increased by 0 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 122
+    await testRunner.AndAsync("getClaimableCreatorFee() returns 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Transfer with configured GAS taxes aborts when the holder has insufficient GAS")]
+        public async global::System.Threading.Tasks.Task TransferWithConfiguredGASTaxesAbortsWhenTheHolderHasInsufficientGAS()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "16";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Transfer with configured GAS taxes aborts when the holder has insufficient GAS", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 124
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 9
+  await this.FeatureBackgroundAsync();
+#line hidden
+#line 125
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletC, platformFeeRate 100" +
+                        "0000, creatorFeeRate 500000, burn rate 200 bps, and initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 126
+    await testRunner.AndAsync("walletA mints 100000 tokens to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 127
+    await testRunner.WhenAsync("walletB transfers 10000 tokens to walletD without additional GAS funding", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 128
+    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 129
+    await testRunner.AndAsync("walletD\'s token balance remains 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 130
+    await testRunner.AndAsync("totalSupply() is 100000", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 131
+    await testRunner.AndAsync("walletC\'s GAS balance increased by 0 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 132
+    await testRunner.AndAsync("the token contract\'s GAS balance increased by 0 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 133
+    await testRunner.AndAsync("getClaimableCreatorFee() returns 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Factory MintByFactory is exempt from all fees")]
+        public async global::System.Threading.Tasks.Task FactoryMintByFactoryIsExemptFromAllFees()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "17";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Factory MintByFactory is exempt from all fees", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 135
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 9
+  await this.FeatureBackgroundAsync();
+#line hidden
+#line 136
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletB, platformFeeRate 100" +
+                        "0000, burn rate 200 bps, and initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 137
+    await testRunner.WhenAsync("the authorized factory mints 1000 tokens to walletC", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 138
+    await testRunner.ThenAsync("walletC\'s token balance is 1000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 139
+    await testRunner.AndAsync("totalSupply() is 1000", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 140
+    await testRunner.AndAsync("walletB\'s GAS balance increased by 0 datoshi from the transfer", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Paused token transfer is rejected")]
+        public async global::System.Threading.Tasks.Task PausedTokenTransferIsRejected()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "18";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Paused token transfer is rejected", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 142
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 9
+  await this.FeatureBackgroundAsync();
+#line hidden
+#line 143
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, pausable true", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 144
+    await testRunner.AndAsync("the owner has paused the contract", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 145
+    await testRunner.WhenAsync("walletA transfers 100 tokens to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 146
+    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("MintByFactory increases balance without fees")]
+        public async global::System.Threading.Tasks.Task MintByFactoryIncreasesBalanceWithoutFees()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "19";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("MintByFactory increases balance without fees", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 148
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 9
+  await this.FeatureBackgroundAsync();
+#line hidden
+#line 149
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletB, platformFeeRate 100" +
+                        "0000, and initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 150
+    await testRunner.WhenAsync("the authorized factory mints 5000 tokens to walletA", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 151
+    await testRunner.ThenAsync("walletA\'s token balance is 5000", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 152
+    await testRunner.AndAsync("totalSupply() is 5000", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("MintByFactory blocked on non-mintable token")]
+        public async global::System.Threading.Tasks.Task MintByFactoryBlockedOnNon_MintableToken()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "20";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("MintByFactory blocked on non-mintable token", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 154
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 9
+  await this.FeatureBackgroundAsync();
+#line hidden
+#line 155
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletB, mintable false, and" +
+                        " initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 156
+    await testRunner.WhenAsync("the authorized factory mints 1000 tokens to walletA", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 157
+    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("MintByFactory blocked when locked")]
+        public async global::System.Threading.Tasks.Task MintByFactoryBlockedWhenLocked()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "21";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("MintByFactory blocked when locked", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 159
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 9
+  await this.FeatureBackgroundAsync();
+#line hidden
+#line 160
     await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletB, platformFeeRate 0, " +
                         "and initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 116
+#line 161
+    await testRunner.AndAsync("the owner has locked the contract", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 162
+    await testRunner.WhenAsync("the authorized factory mints 1000 tokens to walletA", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 163
+    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("MintByFactory blocked when maxSupply would be exceeded")]
+        public async global::System.Threading.Tasks.Task MintByFactoryBlockedWhenMaxSupplyWouldBeExceeded()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "22";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("MintByFactory blocked when maxSupply would be exceeded", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 165
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 9
+  await this.FeatureBackgroundAsync();
+#line hidden
+#line 166
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletB, maxSupply 1000, and" +
+                        " initialSupply 500", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 167
+    await testRunner.WhenAsync("the authorized factory mints 600 tokens to walletA", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 168
+    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Non-factory cannot call MintByFactory")]
+        public async global::System.Threading.Tasks.Task Non_FactoryCannotCallMintByFactory()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "23";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Non-factory cannot call MintByFactory", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 170
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 9
+  await this.FeatureBackgroundAsync();
+#line hidden
+#line 171
+    await testRunner.GivenAsync("the contract is deployed with owner walletA, factory walletB, platformFeeRate 0, " +
+                        "and initialSupply 0", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 172
     await testRunner.WhenAsync("walletC calls MintByFactory 1000 to walletA", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 117
+#line 173
     await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }

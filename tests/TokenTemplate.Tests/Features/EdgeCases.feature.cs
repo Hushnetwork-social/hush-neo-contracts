@@ -410,13 +410,13 @@ namespace TokenTemplate.Tests.Features
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Contract rejects any incoming NEP-17 token transfer")]
-        public async global::System.Threading.Tasks.Task ContractRejectsAnyIncomingNEP_17TokenTransfer()
+        [global::NUnit.Framework.DescriptionAttribute("Contract rejects non-GAS incoming NEP-17 token transfer")]
+        public async global::System.Threading.Tasks.Task ContractRejectsNon_GASIncomingNEP_17TokenTransfer()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "9";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Contract rejects any incoming NEP-17 token transfer", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Contract rejects non-GAS incoming NEP-17 token transfer", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 52

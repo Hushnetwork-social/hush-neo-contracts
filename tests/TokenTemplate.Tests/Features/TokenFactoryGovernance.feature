@@ -38,8 +38,16 @@ Feature: TokenFactory - Governance Operations
     Then the transaction succeeds
     And the owner GAS balance increased by 100000000
 
+  Scenario: Owner can partially claim GAS and leave the remainder in the factory
+    Given the factory has collected 300000000 GAS
+    When walletA claims 100000000 GAS from the factory
+    Then the transaction succeeds
+    And the owner GAS balance increased by 100000000
+    And the factory GAS balance is 200000000
+
   Scenario: Owner can claim all remaining GAS from the factory
     Given the factory has collected 300000000 GAS
     When walletA claims all GAS from the factory
     Then the transaction succeeds
     And the owner GAS balance increased by 300000000
+    And the factory GAS balance is 0
