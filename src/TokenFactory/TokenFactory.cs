@@ -35,6 +35,7 @@ namespace HushNetwork.Contracts
         private const byte Prefix_PlatformFeeRate     = 0xe5; // FEAT-078: BigInteger (datoshi) — per-transfer platform fee passed to deployed tokens
         private const byte Prefix_TemplateVersion     = 0xe6; // FEAT-079: BigInteger version of the configured template artifacts
         private const byte Prefix_TemplateHash        = 0xe7; // FEAT-079: UInt160 identity hash of the configured template artifacts
+        private const byte Prefix_BondingCurveRouter  = 0xe8; // FEAT-074: UInt160 configured speculation router
 
         // ── Owner storage helpers ─────────────────────────────────────────────
 
@@ -180,6 +181,15 @@ namespace HushNetwork.Contracts
         private static void StorageSetTemplateHash(UInt160 value) =>
             Storage.Put(new[] { Prefix_TemplateHash }, value);
 
+        private static UInt160 StorageGetBondingCurveRouter()
+        {
+            ByteString raw = Storage.Get(new[] { Prefix_BondingCurveRouter });
+            return raw is null ? UInt160.Zero : (UInt160)raw;
+        }
+
+        private static void StorageSetBondingCurveRouter(UInt160 value) =>
+            Storage.Put(new[] { Prefix_BondingCurveRouter }, value);
+
         // ── Token count helpers ───────────────────────────────────────────────
 
         private static BigInteger StorageGetTotalTokenCount() =>
@@ -239,6 +249,12 @@ namespace HushNetwork.Contracts
             Storage.Put(key, StdLib.Serialize(value));
         }
 
+        private static void StorageDeleteModeParams(UInt160 contractHash)
+        {
+            ByteString key = (ByteString)new byte[] { Prefix_ModeParams } + (ByteString)contractHash;
+            Storage.Delete(key);
+        }
+
         // ── Per-creator index helpers ─────────────────────────────────────────
         // Count key:  [0x20] + creator (20 bytes) + [0x00]  → BigInteger
         // Token key:  [0x20] + creator (20 bytes) + [0x01] + (ByteString)index → UInt160
@@ -291,6 +307,60 @@ namespace HushNetwork.Contracts
             BigInteger index = StorageGetCreatorTokenCount(creator);
             StorageSetCreatorTokenAtIndex(creator, index, contractHash);
             StorageSetCreatorTokenCount(creator, index + 1);
+        }
+
+        private static BigInteger GetTokenBalance(UInt160 tokenHash, UInt160 account)
+        {
+            object raw = Contract.Call(tokenHash, "balanceOf", CallFlags.ReadOnly, new object[] { account });
+            return raw is null ? 0 : (BigInteger)raw;
+        }
+
+        private static UInt160 RequireBondingCurveRouter()
+        {
+            UInt160 routerHash = StorageGetBondingCurveRouter();
+            ExecutionEngine.Assert(routerHash.IsValid && !routerHash.IsZero, "BondingCurveRouter not configured");
+            return routerHash;
+        }
+
+        private static bool IsSpeculationCurveRegistered(UInt160 tokenHash)
+        {
+            UInt160 routerHash = StorageGetBondingCurveRouter();
+            if (!routerHash.IsValid || routerHash.IsZero) return false;
+
+            object raw = Contract.Call(routerHash, "isCurveRegistered", CallFlags.ReadOnly, new object[] { tokenHash });
+            return raw is not null && (bool)raw;
+        }
+
+        private static object[] NormalizeSpeculationModeParams(object[] modeParams)
+        {
+            ExecutionEngine.Assert(modeParams != null && modeParams.Length >= 2, "Speculation modeParams must be [quoteAsset, curveInventory]");
+
+            string quoteAsset = (string)modeParams[0];
+            BigInteger curveInventory = (BigInteger)modeParams[1];
+
+            ExecutionEngine.Assert(quoteAsset == "GAS" || quoteAsset == "NEO", "Unsupported quote asset");
+            ExecutionEngine.Assert(curveInventory > 0, "Curve inventory must be positive");
+
+            return new object[]
+            {
+                quoteAsset,
+                curveInventory
+            };
+        }
+
+        private static void RegisterSpeculationCurve(UInt160 tokenHash, UInt160 creator, object[] modeParams)
+        {
+            object[] normalized = NormalizeSpeculationModeParams(modeParams);
+            string quoteAsset = (string)normalized[0];
+            BigInteger curveInventory = (BigInteger)normalized[1];
+
+            UInt160 routerHash = RequireBondingCurveRouter();
+
+            BigInteger creatorBalance = GetTokenBalance(tokenHash, creator);
+            ExecutionEngine.Assert(creatorBalance >= curveInventory, "Insufficient owner balance for curve inventory");
+
+            Contract.Call(routerHash, "registerCurve", CallFlags.All, new object[] { tokenHash, quoteAsset, curveInventory });
+            Contract.Call(tokenHash, "transferByFactory", CallFlags.All, new object[] { creator, routerHash, curveInventory, null });
         }
 
         // ── Events ───────────────────────────────────────────────────────────
@@ -373,11 +443,11 @@ namespace HushNetwork.Contracts
 
             // Guard 5: Data format — expect object[]{name, symbol, supply, decimals, mode, imageUrl, creatorFeeRate}
             object[] tokenData = (object[])data;
-            ExecutionEngine.Assert(tokenData.Length == 7, "Expected 7 data elements");
+            ExecutionEngine.Assert(tokenData.Length == 7 || tokenData.Length == 9, "Expected 7 or 9 data elements");
 
             // Guard 6: Mode check — only "community" supported in FEAT-070
             string mode = (string)tokenData[4];
-            ExecutionEngine.Assert(mode == "community", "Unsupported mode");
+            ExecutionEngine.Assert(mode == "community" || mode == "speculation", "Unsupported mode");
 
             string imageUrl             = (string)tokenData[5];
             BigInteger creatorFeeRate   = (BigInteger)tokenData[6];
@@ -390,6 +460,22 @@ namespace HushNetwork.Contracts
             string symbol       = (string)tokenData[1];
             BigInteger supply   = (BigInteger)tokenData[2];
             BigInteger decimals = (BigInteger)tokenData[3];
+            object[] speculationModeParams = null;
+
+            if (mode == "community")
+            {
+                ExecutionEngine.Assert(tokenData.Length == 7, "Community launch expects 7 data elements");
+            }
+            else
+            {
+                ExecutionEngine.Assert(tokenData.Length == 9, "Speculation launch expects 9 data elements");
+                speculationModeParams = NormalizeSpeculationModeParams(new object[]
+                {
+                    (string)tokenData[7],
+                    (BigInteger)tokenData[8]
+                });
+                ExecutionEngine.Assert((BigInteger)speculationModeParams[1] <= supply, "Curve inventory exceeds initial supply");
+            }
 
             // Build 13-element deploy params for TokenTemplate._deploy()
             // Bool params (mintable, upgradeable, pausable) MUST be BigInteger 0/1, NOT C# bool
@@ -441,6 +527,12 @@ namespace HushNetwork.Contracts
                 (BigInteger)0,              // [9] locked — 0 = unlocked at creation
             };
             StorageSetTokenInfo(contractHash, tokenInfo);
+
+            if (speculationModeParams != null)
+            {
+                StorageSetModeParams(contractHash, speculationModeParams);
+                RegisterSpeculationCurve(contractHash, from, speculationModeParams);
+            }
 
             // Emit event
             OnTokenCreated(contractHash, from, symbol, supply, mode, "standard");
@@ -531,6 +623,10 @@ namespace HushNetwork.Contracts
             StorageGetPlatformFeeRate();
 
         [Safe]
+        public static UInt160 GetBondingCurveRouter() =>
+            StorageGetBondingCurveRouter();
+
+        [Safe]
         public static object[] GetConfig()
         {
             return new object[]
@@ -595,6 +691,13 @@ namespace HushNetwork.Contracts
         public static void SetUpdateFee(BigInteger newFee)
         {
             SetOperationFee(newFee);
+        }
+
+        public static void SetBondingCurveRouter(UInt160 routerHash)
+        {
+            AssertOwnerAuthorized();
+            ExecutionEngine.Assert(routerHash.IsValid && !routerHash.IsZero, "Invalid router hash");
+            StorageSetBondingCurveRouter(routerHash);
         }
 
         public static void SetCreationFee(BigInteger newFee)
@@ -786,8 +889,26 @@ namespace HushNetwork.Contracts
                 (oldMode == "crowdfunding" && newMode == "community");
             ExecutionEngine.Assert(validTransition, "Invalid mode transition");
             GAS.Transfer(creator, Runtime.ExecutingScriptHash, StorageGetUpdateFee(), null);
+
+            if (newMode == "speculation")
+            {
+                object[] normalizedModeParams = NormalizeSpeculationModeParams(modeParams);
+                StorageSetModeParams(tokenHash, normalizedModeParams);
+                tokenInfo[3] = newMode;
+                StorageSetTokenInfo(tokenHash, tokenInfo);
+                RegisterSpeculationCurve(tokenHash, creator, normalizedModeParams);
+                OnTokenModeChanged(tokenHash, oldMode, newMode);
+                return;
+            }
+
+            if (oldMode == "speculation")
+                ExecutionEngine.Assert(!IsSpeculationCurveRegistered(tokenHash), "Speculation curve already active");
+
             if (modeParams != null && modeParams.Length > 0)
                 StorageSetModeParams(tokenHash, modeParams);
+            else
+                StorageDeleteModeParams(tokenHash);
+
             tokenInfo[3] = newMode;
             StorageSetTokenInfo(tokenHash, tokenInfo);
             OnTokenModeChanged(tokenHash, oldMode, newMode);
@@ -897,9 +1018,28 @@ namespace HushNetwork.Contracts
                     (oldMode == "speculation"  && newMode == "community") ||
                     (oldMode == "crowdfunding" && newMode == "community");
                 ExecutionEngine.Assert(validTransition, "Invalid mode transition");
-                if (modeParams != null && modeParams.Length > 0)
-                    StorageSetModeParams(tokenHash, modeParams);
-                tokenInfo[3] = newMode;
+
+                if (newMode == "speculation")
+                {
+                    object[] normalizedModeParams = NormalizeSpeculationModeParams(modeParams);
+                    StorageSetModeParams(tokenHash, normalizedModeParams);
+                    tokenInfo[3] = newMode;
+                    StorageSetTokenInfo(tokenHash, tokenInfo);
+                    RegisterSpeculationCurve(tokenHash, creator, normalizedModeParams);
+                }
+                else
+                {
+                    if (oldMode == "speculation")
+                        ExecutionEngine.Assert(!IsSpeculationCurveRegistered(tokenHash), "Speculation curve already active");
+
+                    if (modeParams != null && modeParams.Length > 0)
+                        StorageSetModeParams(tokenHash, modeParams);
+                    else
+                        StorageDeleteModeParams(tokenHash);
+
+                    tokenInfo[3] = newMode;
+                }
+
                 OnTokenModeChanged(tokenHash, oldMode, newMode);
             }
 

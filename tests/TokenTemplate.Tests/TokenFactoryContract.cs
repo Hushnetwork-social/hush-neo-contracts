@@ -94,6 +94,9 @@ public abstract class TokenFactoryContract : SmartContract
     [DisplayName("getPlatformFeeRate")]
     public abstract BigInteger GetPlatformFeeRate();
 
+    [DisplayName("getBondingCurveRouter")]
+    public abstract UInt160? GetBondingCurveRouter();
+
     [DisplayName("getConfig")]
     public abstract object[]? GetConfig();
 
@@ -104,6 +107,9 @@ public abstract class TokenFactoryContract : SmartContract
 
     [DisplayName("setUpdateFee")]
     public abstract void SetUpdateFee(BigInteger? newFee);
+
+    [DisplayName("setBondingCurveRouter")]
+    public abstract void SetBondingCurveRouter(UInt160? routerHash);
 
     [DisplayName("setOperationFee")]
     public abstract void SetOperationFee(BigInteger? newFee);

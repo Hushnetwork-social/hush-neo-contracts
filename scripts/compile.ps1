@@ -6,7 +6,7 @@ param(
     [string]$Contract = "all"
 )
 
-$contracts = @("TokenTemplate", "TokenFactory")
+$contracts = @("TokenTemplate", "TokenFactory", "BondingCurveRouter")
 
 if ($Contract -ne "all") {
     $contracts = @($Contract)

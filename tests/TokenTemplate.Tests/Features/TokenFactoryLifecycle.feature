@@ -133,10 +133,10 @@ Feature: TokenFactory — Token Lifecycle Operations
     When walletA calls factory ChangeTokenMode to "crowdfunding"
     Then the registry token mode is "crowdfunding"
 
-  Scenario: Creator reverts speculation to community
+  Scenario: Creator cannot revert active speculation to community
     Given the token mode is "speculation"
     When walletA calls factory ChangeTokenMode to "community"
-    Then the registry token mode is "community"
+    Then the transaction is aborted
 
   Scenario: Speculation to crowdfunding transition is rejected
     Given the token mode is "speculation"
