@@ -1013,13 +1013,13 @@ namespace TokenTemplate.Tests.Features
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Creator reverts speculation to community")]
-        public async global::System.Threading.Tasks.Task CreatorRevertsSpeculationToCommunity()
+        [global::NUnit.Framework.DescriptionAttribute("Creator cannot revert active speculation to community")]
+        public async global::System.Threading.Tasks.Task CreatorCannotRevertActiveSpeculationToCommunity()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "26";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Creator reverts speculation to community", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Creator cannot revert active speculation to community", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 136
@@ -1042,7 +1042,7 @@ namespace TokenTemplate.Tests.Features
     await testRunner.WhenAsync("walletA calls factory ChangeTokenMode to \"community\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 139
-    await testRunner.ThenAsync("the registry token mode is \"community\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();

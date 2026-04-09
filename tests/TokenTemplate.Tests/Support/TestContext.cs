@@ -52,6 +52,9 @@ public class TestContext
     /// <summary>The deployed TokenFactory contract proxy (factory scenarios).</summary>
     public TokenFactoryContract? Factory { get; set; }
 
+    /// <summary>The deployed BondingCurveRouter contract proxy (speculation scenarios).</summary>
+    public BondingCurveRouterContract? Router { get; set; }
+
     /// <summary>Hash of the last token deployed by the factory (factory scenarios).</summary>
     public UInt160 LastCreatedTokenHash { get; set; } = UInt160.Zero;
 

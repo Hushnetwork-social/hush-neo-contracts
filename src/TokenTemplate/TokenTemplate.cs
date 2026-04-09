@@ -632,6 +632,25 @@ namespace Neo.SmartContract.Template
             Nep17Token.Mint(to, amount);
         }
 
+        // Factory-mediated custody move used by lifecycle routers such as BondingCurveRouter.
+        // This bypasses transfer taxes and burn so the factory can move an exact owner-selected
+        // inventory amount into router custody during activation.
+        public static void TransferByFactory(UInt160 from, UInt160 to, BigInteger amount, object data = null)
+        {
+            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            ExecutionEngine.Assert(
+                Runtime.CallingScriptHash == StorageGetAuthorizedFactory() ||
+                Runtime.EntryScriptHash == StorageGetAuthorizedFactory(),
+                "No authorization"
+            );
+            ExecutionEngine.Assert(from.IsValid && !from.IsZero, "Invalid sender");
+            ExecutionEngine.Assert(to.IsValid && !to.IsZero, "Invalid recipient");
+            ExecutionEngine.Assert(amount > 0, "Amount must be positive");
+
+            bool transferred = Nep17Token.Transfer(from, to, amount, data);
+            ExecutionEngine.Assert(transferred, "Factory transfer failed");
+        }
+
         // Rejects all incoming NEP-17 transfers — this contract holds no tokens.
         [DisplayName("onNEP17Payment")]
         public static void OnNEP17Payment(UInt160 from, BigInteger amount, object data)

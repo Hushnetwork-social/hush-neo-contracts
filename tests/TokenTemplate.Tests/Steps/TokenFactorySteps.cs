@@ -859,6 +859,31 @@ public class TokenFactorySteps
         _context.Factory!.SetNefAndManifest(nefBytes, manifestString);
     }
 
+    private void EnsureBondingCurveRouterConfigured()
+    {
+        UInt160 configuredRouter = _context.Factory!.GetBondingCurveRouter() ?? UInt160.Zero;
+        if (configuredRouter != UInt160.Zero)
+            return;
+
+        var nefPath = Path.Combine(ArtifactsPath, "BondingCurveRouter.nef");
+        var manifestPath = Path.Combine(ArtifactsPath, "BondingCurveRouter.manifest.json");
+
+        Assert.That(File.Exists(nefPath), Is.True, $"BondingCurveRouter NEF not found: {nefPath}");
+        Assert.That(File.Exists(manifestPath), Is.True, $"BondingCurveRouter manifest not found: {manifestPath}");
+
+        var nef = Neo.SmartContract.NefFile.Parse(File.ReadAllBytes(nefPath));
+        var manifest = ContractManifest.Parse(File.ReadAllText(manifestPath));
+
+        _context.Engine.SetTransactionSigners(_context.OwnerSigner);
+        _context.Router = _context.Engine.Deploy<BondingCurveRouterContract>(
+            nef,
+            manifest,
+            new object[] { _context.OwnerSigner.Account, _context.Factory.Hash });
+
+        _context.Factory.SetBondingCurveRouter(_context.Router.Hash);
+        Assert.That(_context.Factory.GetBondingCurveRouter(), Is.EqualTo(_context.Router.Hash));
+    }
+
     /// <summary>Resolves a wallet name to its UInt160 address from NamedSigners (no creation).</summary>
     private UInt160 ResolveWalletAddress(string wallet)
     {
@@ -1012,9 +1037,21 @@ public class TokenFactorySteps
     public void GivenTheTokenModeIs(string mode)
     {
         var tokenHash = _namedTokens["MYTOK"];
-        _context.Engine.SetTransactionSigners(GetOrCreateWallet("walletA"));
+        var creator = GetOrCreateWallet("walletA");
+        FundWalletWithGas(creator.Account, 500_000_000);
         _context.LastException = null;
-        try { _context.Factory!.ChangeTokenMode(tokenHash, mode, null); }
+        try
+        {
+            object[]? modeParams = null;
+            if (mode == "speculation")
+            {
+                EnsureBondingCurveRouterConfigured();
+                modeParams = BuildDefaultSpeculationModeParams(tokenHash);
+            }
+
+            _context.Engine.SetTransactionSigners(new Signer { Account = creator.Account, Scopes = WitnessScope.Global });
+            _context.Factory!.ChangeTokenMode(tokenHash, mode, modeParams);
+        }
         catch (Exception ex) { _context.LastException = ex; }
         Assert.That(_context.LastException, Is.Null,
             $"ChangeTokenMode to '{mode}' failed in Given: {_context.LastException?.Message}");
@@ -1125,10 +1162,22 @@ public class TokenFactorySteps
     public void WalletCallsFactoryChangeTokenMode(string fromWallet, string newMode)
     {
         var tokenHash = _namedTokens["MYTOK"];
+        var signer = GetOrCreateWallet(fromWallet);
+        FundWalletWithGas(signer.Account, 500_000_000);
         _factoryGasBefore = GasBalanceOf(_context.Factory!.Hash);
-        _context.Engine.SetTransactionSigners(GetOrCreateWallet(fromWallet));
         _context.LastException = null;
-        try { _context.Factory!.ChangeTokenMode(tokenHash, newMode, null); }
+        try
+        {
+            object[]? modeParams = null;
+            if (newMode == "speculation")
+            {
+                EnsureBondingCurveRouterConfigured();
+                modeParams = BuildDefaultSpeculationModeParams(tokenHash);
+            }
+
+            _context.Engine.SetTransactionSigners(new Signer { Account = signer.Account, Scopes = WitnessScope.Global });
+            _context.Factory!.ChangeTokenMode(tokenHash, newMode, modeParams);
+        }
         catch (Exception ex) { _context.LastException = ex; }
     }
 
@@ -1136,12 +1185,22 @@ public class TokenFactorySteps
     public void WalletCallsFactoryChangeTokenModeWithParams(string fromWallet, string newMode)
     {
         var tokenHash  = _namedTokens["MYTOK"];
+        var signer = GetOrCreateWallet(fromWallet);
+        FundWalletWithGas(signer.Account, 500_000_000);
         _factoryGasBefore = GasBalanceOf(_context.Factory!.Hash);
-        _context.Engine.SetTransactionSigners(GetOrCreateWallet(fromWallet));
         _context.LastException = null;
-        // Sample mode params (e.g. speculation thresholds)
-        var modeParams = new object[] { (BigInteger)1000, (BigInteger)5000 };
-        try { _context.Factory!.ChangeTokenMode(tokenHash, newMode, modeParams); }
+        object[] modeParams = Array.Empty<object>();
+        try
+        {
+            if (newMode == "speculation")
+            {
+                EnsureBondingCurveRouterConfigured();
+                modeParams = BuildDefaultSpeculationModeParams(tokenHash);
+            }
+
+            _context.Engine.SetTransactionSigners(new Signer { Account = signer.Account, Scopes = WitnessScope.Global });
+            _context.Factory!.ChangeTokenMode(tokenHash, newMode, modeParams);
+        }
         catch (Exception ex) { _context.LastException = ex; }
     }
 
@@ -1463,26 +1522,44 @@ public class TokenFactorySteps
         bool lockToken = false)
     {
         var tokenHash = _namedTokens["MYTOK"];
-        FundWalletWithGas(GetOrCreateWallet(fromWallet).Account, 500_000_000);
-        _factoryGasBefore = GasBalanceOf(_context.Factory!.Hash);
         var signer = GetOrCreateWallet(fromWallet);
-        _context.Engine.SetTransactionSigners(new Signer { Account = signer.Account, Scopes = WitnessScope.Global });
+        FundWalletWithGas(signer.Account, 500_000_000);
+        _factoryGasBefore = GasBalanceOf(_context.Factory!.Hash);
         _context.LastException = null;
+        object[] modeParams = Array.Empty<object>();
         try
         {
+            if (newMode == "speculation")
+            {
+                EnsureBondingCurveRouterConfigured();
+                modeParams = BuildDefaultSpeculationModeParams(tokenHash);
+            }
+
+            _context.Engine.SetTransactionSigners(new Signer { Account = signer.Account, Scopes = WitnessScope.Global });
             _context.Factory!.ApplyTokenChanges(
                 tokenHash,
                 imageUrl,
                 (BigInteger)burnRate,
                 (BigInteger)creatorFeeRate,
                 newMode,
-                new object[0],
+                modeParams,
                 (BigInteger)newMaxSupply,
                 mintTo ?? UInt160.Zero,
                 (BigInteger)mintAmount,
                 lockToken);
         }
         catch (Exception ex) { _context.LastException = ex; }
+    }
+
+    private object[] BuildDefaultSpeculationModeParams(UInt160 tokenHash)
+    {
+        UInt160 creator = GetOrCreateWallet("walletA").Account;
+        var token = _context.Engine.FromHash<TokenTemplateContract>(tokenHash, true);
+        BigInteger ownerBalance = token.BalanceOf(creator) ?? BigInteger.Zero;
+        BigInteger curveInventory = ownerBalance / 2;
+        if (curveInventory <= 0) curveInventory = ownerBalance;
+        Assert.That(curveInventory, Is.GreaterThan(BigInteger.Zero), "Expected positive owner balance for speculation launch");
+        return new object[] { "GAS", curveInventory };
     }
 
     private void TransferGasToFactory(BigInteger datoshi)

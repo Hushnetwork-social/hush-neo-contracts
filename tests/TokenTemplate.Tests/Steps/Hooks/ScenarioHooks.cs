@@ -46,6 +46,8 @@ public class ScenarioHooks
         _context.Contract = null;
         _context.Factory?.Dispose();
         _context.Factory = null;
+        _context.Router?.Dispose();
+        _context.Router = null;
         _context.LastCreatedTokenHash = UInt160.Zero;
         _context.SpikeContract?.Dispose();
         _context.SpikeContract = null;

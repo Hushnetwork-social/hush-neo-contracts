@@ -161,6 +161,9 @@ public abstract class TokenTemplateContract : SmartContract
     [DisplayName("mintByFactory")]
     public abstract void MintByFactory(UInt160? to, BigInteger? amount);
 
+    [DisplayName("transferByFactory")]
+    public abstract void TransferByFactory(UInt160? from, UInt160? to, BigInteger? amount, object? data = null);
+
     [DisplayName("claimCreatorFees")]
     public abstract void claimCreatorFees();
 

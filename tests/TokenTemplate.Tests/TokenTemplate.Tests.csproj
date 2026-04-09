@@ -37,6 +37,14 @@
           CopyToOutputDirectory="Always"
           Link="artifacts\TokenFactory.manifest.json" />
 
+    <!-- BondingCurveRouter contract artifacts (built by src/BondingCurveRouter) -->
+    <None Include="..\..\src\BondingCurveRouter\bin\sc\BondingCurveRouter.nef"
+          CopyToOutputDirectory="Always"
+          Link="artifacts\BondingCurveRouter.nef" />
+    <None Include="..\..\src\BondingCurveRouter\bin\sc\BondingCurveRouter.manifest.json"
+          CopyToOutputDirectory="Always"
+          Link="artifacts\BondingCurveRouter.manifest.json" />
+
     <!-- SpikeDeploy contract artifacts (built by src/SpikeDeploy) -->
     <None Include="..\..\src\SpikeDeploy\bin\sc\SpikeDeploy.nef"
           CopyToOutputDirectory="Always"
