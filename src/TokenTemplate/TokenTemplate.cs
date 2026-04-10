@@ -193,6 +193,20 @@ namespace Neo.SmartContract.Template
             return raw is null ? 0 : (BigInteger)raw;
         }
 
+        private static UInt160 GetFactoryRouterOrZero()
+        {
+            UInt160 factory = StorageGetAuthorizedFactory();
+            if (!factory.IsValid || factory.IsZero)
+                return UInt160.Zero;
+
+            Contract factoryContract = ContractManagement.GetContract(factory);
+            if (factoryContract is null)
+                return UInt160.Zero;
+
+            object raw = Contract.Call(factory, "getBondingCurveRouter", CallFlags.ReadOnly, Array.Empty<object>());
+            return raw is null ? UInt160.Zero : (UInt160)raw;
+        }
+
         // ── Owner ─────────────────────────────────────────────────────────────
 
         [Safe]
@@ -483,12 +497,16 @@ namespace Neo.SmartContract.Template
         public static new bool Transfer(UInt160 from, UInt160 to, BigInteger amount, object data = null)
         {
             ExecutionEngine.Assert(!StorageGetPaused(), "Token transfers are paused");
+            bool sourceBalanceControlledByCallingContract =
+                Runtime.CallingScriptHash.IsValid && Runtime.CallingScriptHash == from;
 
             // Mint calls (from == address(0)) are fully exempt from fees.
             if (from != UInt160.Zero)
             {
                 // GAS fees: collected only when the sender signed the transaction directly.
-                if (Runtime.CheckWitness(from))
+                // Contract-controlled custody releases such as router -> buyer transfers
+                // must not try to re-pull GAS fees from the source contract balance.
+                if (!sourceBalanceControlledByCallingContract && Runtime.CheckWitness(from))
                 {
                     BigInteger platformFee = StorageGetPlatformFeeRate();
                     if (platformFee > 0)
@@ -657,6 +675,18 @@ namespace Neo.SmartContract.Template
         {
             if (Runtime.CallingScriptHash != GAS.Hash)
                 throw new InvalidOperationException("Only GAS accepted.");
+
+            if (amount <= 0)
+                return;
+
+            if (data is string marker && marker == "creator_fee_deposit")
+            {
+                UInt160 router = GetFactoryRouterOrZero();
+                if (router.IsValid && !router.IsZero && from == router)
+                {
+                    StorageSetCreatorClaimable(StorageGetCreatorClaimable() + amount);
+                }
+            }
         }
 
         // ── Contract lifecycle ────────────────────────────────────────────────

@@ -14,6 +14,7 @@ namespace TokenTemplate.Tests;
 [TestFixture]
 public class BondingCurveRouterTests
 {
+    private static readonly BigInteger PriceScale = BigInteger.Parse("1000000000000000000");
     private static readonly string ArtifactsPath =
         Path.Combine(AppContext.BaseDirectory, "artifacts");
 
@@ -31,13 +32,14 @@ public class BondingCurveRouterTests
         SimulateGasPayment(engine, factory, ownerSigner, 1_500_000_000, new object[]
         {
             "Spec Token", "SPEC", (BigInteger)1_000_000, (BigInteger)8,
-            "speculation", "", (BigInteger)0, "GAS", (BigInteger)800_000
+            "speculation", "", (BigInteger)0, "GAS", (BigInteger)800_000, "growth"
         });
 
         var tokenHash = GetLatestCreatedToken(factory, ownerSigner.Account);
         using var token = engine.FromHash<TokenTemplateContract>(tokenHash, true);
 
         var curve = router.GetCurve(tokenHash)!;
+        var impliedLaunchCap = ParseBigInteger(curve[8]) * ParseBigInteger(curve[11]) / PriceScale;
 
         Assert.Multiple(() =>
         {
@@ -50,6 +52,8 @@ public class BondingCurveRouterTests
             Assert.That(ParseBigInteger(curve[11]), Is.EqualTo((BigInteger)800_000));
             Assert.That(ParseBigInteger(curve[12]), Is.EqualTo((BigInteger)200_000));
             Assert.That(ParseBigInteger(curve[13]), Is.EqualTo((BigInteger)1_000_000));
+            Assert.That(ParseText(curve[15]), Is.EqualTo("growth"));
+            Assert.That(impliedLaunchCap, Is.InRange((BigInteger)449_999_000_000, (BigInteger)450_001_000_000));
         });
     }
 
@@ -75,7 +79,7 @@ public class BondingCurveRouterTests
 
         FundWalletWithGas(engine, ownerSigner.Account, 500_000_000);
         engine.SetTransactionSigners(new Signer { Account = ownerSigner.Account, Scopes = WitnessScope.Global });
-        factory.ChangeTokenMode(tokenHash, "speculation", new object[] { "GAS", (BigInteger)600_000 });
+        factory.ChangeTokenMode(tokenHash, "speculation", new object[] { "GAS", (BigInteger)600_000, "flagship" });
 
         var curve = router.GetCurve(tokenHash)!;
 
@@ -87,6 +91,7 @@ public class BondingCurveRouterTests
             Assert.That(token.BalanceOf(router.Hash), Is.EqualTo((BigInteger)600_000));
             Assert.That(ParseBigInteger(curve[11]), Is.EqualTo((BigInteger)600_000));
             Assert.That(ParseBigInteger(curve[12]), Is.EqualTo((BigInteger)400_000));
+            Assert.That(ParseText(curve[15]), Is.EqualTo("flagship"));
         });
     }
 
@@ -115,9 +120,9 @@ public class BondingCurveRouterTests
         engine.SetTransactionSigners(new Signer { Account = ownerSigner.Account, Scopes = WitnessScope.Global });
         factory.SetTokenBurnRate(tokenHash, 100);
 
-        FundWalletWithGas(engine, traderSigner.Account, 12_000_000_000);
+        FundWalletWithGas(engine, traderSigner.Account, 260_000_000_000);
         engine.SetTransactionSigners(new Signer { Account = traderSigner.Account, Scopes = WitnessScope.Global });
-        var bought = engine.Native.GAS.Transfer(traderSigner.Account, router.Hash, 8_000_000_000, new object[] { tokenHash, (BigInteger)1 });
+        var bought = engine.Native.GAS.Transfer(traderSigner.Account, router.Hash, 250_000_000_000, new object[] { tokenHash, (BigInteger)1 });
         Assert.That(bought, Is.True);
 
         var boughtBalance = token.BalanceOf(traderSigner.Account) ?? BigInteger.Zero;
@@ -176,6 +181,53 @@ public class BondingCurveRouterTests
             Assert.That(ParseBigInteger(sellQuote[5]), Is.EqualTo((BigInteger)1_000_000));
             Assert.That(ParseBigInteger(sellQuote[6]), Is.EqualTo((BigInteger)500_000));
         });
+    }
+
+    [Test]
+    public void Buy_WithCreatorFeeEnabled_RemainsExecutable()
+    {
+        var engine = new TestEngine(true);
+        var ownerSigner = TestEngine.GetNewSigner();
+        var traderSigner = TestEngine.GetNewSigner();
+        engine.SetTransactionSigners(ownerSigner);
+
+        using var factory = DeployFactory(engine, ownerSigner.Account);
+        using var router = DeployRouter(engine, ownerSigner.Account, factory.Hash);
+        BootstrapFactoryAndRouter(engine, ownerSigner.Account, factory, router);
+
+        SimulateGasPayment(engine, factory, ownerSigner, 1_500_000_000, new object[]
+        {
+            "Creator Fee Token", "CFEE", (BigInteger)1_000_000_000, (BigInteger)8,
+            "speculation", "", (BigInteger)0, "GAS", (BigInteger)1_000_000_000, "growth"
+        });
+
+        var tokenHash = GetLatestCreatedToken(factory, ownerSigner.Account);
+        using var token = engine.FromHash<TokenTemplateContract>(tokenHash, true);
+
+        FundWalletWithGas(engine, ownerSigner.Account, 500_000_000);
+        engine.SetTransactionSigners(new Signer { Account = ownerSigner.Account, Scopes = WitnessScope.Global });
+        factory.SetCreatorFee(tokenHash, 5_000_000);
+
+        var buyQuote = router.GetBuyQuote(tokenHash, 10_000_000_000)!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(ParseBigInteger(buyQuote[6]), Is.EqualTo(BigInteger.Zero));
+            Assert.That(ParseBigInteger(buyQuote[7]), Is.EqualTo((BigInteger)5_000_000));
+        });
+
+        FundWalletWithGas(engine, traderSigner.Account, 20_000_000_000);
+        engine.SetTransactionSigners(new Signer { Account = traderSigner.Account, Scopes = WitnessScope.Global });
+
+        var bought = engine.Native.GAS.Transfer(
+            traderSigner.Account,
+            router.Hash,
+            10_000_000_000,
+            new object[] { tokenHash, (BigInteger)1 }
+        );
+
+        Assert.That(bought, Is.True);
+        Assert.That(token.BalanceOf(traderSigner.Account), Is.GreaterThan(BigInteger.Zero));
+        Assert.That(token.getClaimableCreatorFee(), Is.EqualTo((BigInteger)5_000_000));
     }
 
     private static void BootstrapFactoryAndRouter(TestEngine engine, UInt160 ownerAddress, TokenFactoryContract factory, BondingCurveRouterContract router)

@@ -331,12 +331,28 @@ namespace HushNetwork.Contracts
             return raw is not null && (bool)raw;
         }
 
+        private static string NormalizeLaunchProfile(string launchProfile)
+        {
+            if (launchProfile is null || launchProfile.Length == 0) return "starter";
+
+            bool supported =
+                launchProfile == "starter" ||
+                launchProfile == "standard" ||
+                launchProfile == "growth" ||
+                launchProfile == "flagship";
+            ExecutionEngine.Assert(supported, "Unsupported launch profile");
+            return launchProfile;
+        }
+
         private static object[] NormalizeSpeculationModeParams(object[] modeParams)
         {
-            ExecutionEngine.Assert(modeParams != null && modeParams.Length >= 2, "Speculation modeParams must be [quoteAsset, curveInventory]");
+            ExecutionEngine.Assert(modeParams != null && modeParams.Length >= 2, "Speculation modeParams must be [quoteAsset, curveInventory, launchProfile?]");
 
             string quoteAsset = (string)modeParams[0];
             BigInteger curveInventory = (BigInteger)modeParams[1];
+            string launchProfile = modeParams.Length > 2
+                ? NormalizeLaunchProfile((string)modeParams[2])
+                : "starter";
 
             ExecutionEngine.Assert(quoteAsset == "GAS" || quoteAsset == "NEO", "Unsupported quote asset");
             ExecutionEngine.Assert(curveInventory > 0, "Curve inventory must be positive");
@@ -344,7 +360,8 @@ namespace HushNetwork.Contracts
             return new object[]
             {
                 quoteAsset,
-                curveInventory
+                curveInventory,
+                launchProfile
             };
         }
 
@@ -443,7 +460,7 @@ namespace HushNetwork.Contracts
 
             // Guard 5: Data format — expect object[]{name, symbol, supply, decimals, mode, imageUrl, creatorFeeRate}
             object[] tokenData = (object[])data;
-            ExecutionEngine.Assert(tokenData.Length == 7 || tokenData.Length == 9, "Expected 7 or 9 data elements");
+            ExecutionEngine.Assert(tokenData.Length == 7 || tokenData.Length == 9 || tokenData.Length == 10, "Expected 7, 9, or 10 data elements");
 
             // Guard 6: Mode check — only "community" supported in FEAT-070
             string mode = (string)tokenData[4];
@@ -468,11 +485,12 @@ namespace HushNetwork.Contracts
             }
             else
             {
-                ExecutionEngine.Assert(tokenData.Length == 9, "Speculation launch expects 9 data elements");
+                ExecutionEngine.Assert(tokenData.Length == 9 || tokenData.Length == 10, "Speculation launch expects 9 or 10 data elements");
                 speculationModeParams = NormalizeSpeculationModeParams(new object[]
                 {
                     (string)tokenData[7],
-                    (BigInteger)tokenData[8]
+                    (BigInteger)tokenData[8],
+                    tokenData.Length > 9 ? (string)tokenData[9] : "starter"
                 });
                 ExecutionEngine.Assert((BigInteger)speculationModeParams[1] <= supply, "Curve inventory exceeds initial supply");
             }

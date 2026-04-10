@@ -25,6 +25,10 @@ namespace HushNetwork.Contracts
 
         private const byte QuoteAssetGas = 0x01;
         private const byte QuoteAssetNeo = 0x02;
+        private const byte LaunchProfileStarter = 0x01;
+        private const byte LaunchProfileStandard = 0x02;
+        private const byte LaunchProfileGrowth = 0x03;
+        private const byte LaunchProfileFlagship = 0x04;
 
         private static readonly BigInteger PriceScale = 1_000_000_000_000_000_000;
 
@@ -144,19 +148,70 @@ namespace HushNetwork.Contracts
             return quoteAsset == "GAS" ? QuoteAssetGas : QuoteAssetNeo;
         }
 
-        private static BigInteger GetDefaultVirtualQuote(BigInteger quoteAssetCode)
+        private static string LaunchProfileToString(BigInteger launchProfileCode)
         {
-            if (quoteAssetCode == (BigInteger)QuoteAssetGas) return 100_000_000;
-            if (quoteAssetCode == (BigInteger)QuoteAssetNeo) return 10;
+            if (launchProfileCode == (BigInteger)LaunchProfileStarter) return "starter";
+            if (launchProfileCode == (BigInteger)LaunchProfileStandard) return "standard";
+            if (launchProfileCode == (BigInteger)LaunchProfileGrowth) return "growth";
+            if (launchProfileCode == (BigInteger)LaunchProfileFlagship) return "flagship";
+            return "";
+        }
+
+        private static BigInteger ParseLaunchProfileCode(string launchProfile)
+        {
+            if (launchProfile is null || launchProfile.Length == 0) return LaunchProfileStarter;
+            if (launchProfile == "starter") return LaunchProfileStarter;
+            if (launchProfile == "standard") return LaunchProfileStandard;
+            if (launchProfile == "growth") return LaunchProfileGrowth;
+            if (launchProfile == "flagship") return LaunchProfileFlagship;
+            ExecutionEngine.Assert(false, "Unsupported launch profile");
             return 0;
         }
 
-        private static BigInteger GetDefaultVirtualTokens(BigInteger quoteAssetCode) => 100_000;
-
-        private static BigInteger GetDefaultGraduationThreshold(BigInteger quoteAssetCode)
+        private static BigInteger GetProfileInitialLaunchCap(BigInteger quoteAssetCode, BigInteger launchProfileCode)
         {
-            if (quoteAssetCode == (BigInteger)QuoteAssetGas) return 500_000_000;
-            if (quoteAssetCode == (BigInteger)QuoteAssetNeo) return 50;
+            if (quoteAssetCode == (BigInteger)QuoteAssetGas)
+            {
+                if (launchProfileCode == (BigInteger)LaunchProfileStarter) return 60_000_000_000;
+                if (launchProfileCode == (BigInteger)LaunchProfileStandard) return 180_000_000_000;
+                if (launchProfileCode == (BigInteger)LaunchProfileGrowth) return 450_000_000_000;
+                if (launchProfileCode == (BigInteger)LaunchProfileFlagship) return 900_000_000_000;
+            }
+            else if (quoteAssetCode == (BigInteger)QuoteAssetNeo)
+            {
+                if (launchProfileCode == (BigInteger)LaunchProfileStarter) return 75;
+                if (launchProfileCode == (BigInteger)LaunchProfileStandard) return 225;
+                if (launchProfileCode == (BigInteger)LaunchProfileGrowth) return 550;
+                if (launchProfileCode == (BigInteger)LaunchProfileFlagship) return 1100;
+            }
+            return 0;
+        }
+
+        private static BigInteger GetProfileGraduationThreshold(BigInteger quoteAssetCode, BigInteger launchProfileCode)
+        {
+            if (quoteAssetCode == (BigInteger)QuoteAssetGas)
+            {
+                if (launchProfileCode == (BigInteger)LaunchProfileStarter) return 200_000_000_000;
+                if (launchProfileCode == (BigInteger)LaunchProfileStandard) return 600_000_000_000;
+                if (launchProfileCode == (BigInteger)LaunchProfileGrowth) return 1_500_000_000_000;
+                if (launchProfileCode == (BigInteger)LaunchProfileFlagship) return 3_000_000_000_000;
+            }
+            else if (quoteAssetCode == (BigInteger)QuoteAssetNeo)
+            {
+                if (launchProfileCode == (BigInteger)LaunchProfileStarter) return 250;
+                if (launchProfileCode == (BigInteger)LaunchProfileStandard) return 750;
+                if (launchProfileCode == (BigInteger)LaunchProfileGrowth) return 1800;
+                if (launchProfileCode == (BigInteger)LaunchProfileFlagship) return 3600;
+            }
+            return 0;
+        }
+
+        private static BigInteger GetProfileSoldAtGraduationBps(BigInteger launchProfileCode)
+        {
+            if (launchProfileCode == (BigInteger)LaunchProfileStarter) return 8000;
+            if (launchProfileCode == (BigInteger)LaunchProfileStandard) return 8250;
+            if (launchProfileCode == (BigInteger)LaunchProfileGrowth) return 8500;
+            if (launchProfileCode == (BigInteger)LaunchProfileFlagship) return 8750;
             return 0;
         }
 
@@ -197,6 +252,12 @@ namespace HushNetwork.Contracts
             return raw is null ? 0 : (BigInteger)raw;
         }
 
+        private static UInt160 SafeTokenCreatorClaimant(UInt160 tokenHash)
+        {
+            object raw = Contract.Call(tokenHash, "getCreatorClaimant", CallFlags.ReadOnly, Array.Empty<object>());
+            return raw is null ? UInt160.Zero : (UInt160)raw;
+        }
+
         private static object[] SafeTokenQuoteTransfer(UInt160 tokenHash, BigInteger amount)
         {
             object raw = Contract.Call(
@@ -212,6 +273,52 @@ namespace HushNetwork.Contracts
         {
             object raw = Contract.Call(factoryHash, "getToken", CallFlags.ReadOnly, new object[] { tokenHash });
             return raw is null ? null : (object[])raw;
+        }
+
+        private static object[] GetFactoryModeParams(UInt160 factoryHash, UInt160 tokenHash)
+        {
+            object raw = Contract.Call(factoryHash, "getModeParams", CallFlags.ReadOnly, new object[] { tokenHash });
+            return raw is null ? null : (object[])raw;
+        }
+
+        private static object[] DeriveLaunchProfileSettings(
+            BigInteger quoteAssetCode,
+            BigInteger curveInventory,
+            BigInteger launchProfileCode
+        )
+        {
+            BigInteger initialLaunchCap = GetProfileInitialLaunchCap(quoteAssetCode, launchProfileCode);
+            BigInteger graduationThreshold = GetProfileGraduationThreshold(quoteAssetCode, launchProfileCode);
+            BigInteger soldAtGraduationBps = GetProfileSoldAtGraduationBps(launchProfileCode);
+
+            ExecutionEngine.Assert(initialLaunchCap > 0, "Unsupported launch profile");
+            ExecutionEngine.Assert(curveInventory > 0, "Invalid curve inventory");
+            ExecutionEngine.Assert(graduationThreshold > initialLaunchCap, "Invalid graduation target");
+            ExecutionEngine.Assert(soldAtGraduationBps > 0 && soldAtGraduationBps < 10000, "Invalid launch profile depth");
+
+            BigInteger initialPrice = initialLaunchCap * PriceScale / curveInventory;
+            BigInteger soldAtGraduationTokens = curveInventory * soldAtGraduationBps / 10000;
+            ExecutionEngine.Assert(initialPrice > 0, "Invalid launch profile price");
+            ExecutionEngine.Assert(soldAtGraduationTokens > 0 && soldAtGraduationTokens < curveInventory, "Invalid launch profile token depth");
+
+            BigInteger denominator = graduationThreshold * PriceScale - soldAtGraduationTokens * initialPrice;
+            ExecutionEngine.Assert(denominator > 0, "Invalid launch profile threshold");
+
+            BigInteger virtualQuote = CeilDiv(
+                soldAtGraduationTokens * graduationThreshold * initialPrice,
+                denominator
+            );
+            BigInteger launchTokenTotal = CeilDiv(virtualQuote * PriceScale, initialPrice);
+            BigInteger virtualTokens = launchTokenTotal > curveInventory
+                ? launchTokenTotal - curveInventory
+                : (BigInteger)1;
+
+            return new object[]
+            {
+                virtualQuote,
+                virtualTokens,
+                graduationThreshold
+            };
         }
 
         private static BigInteger ComputeInvariant(BigInteger virtualQuote, BigInteger virtualTokens, BigInteger realQuote, BigInteger tokenReserve) =>
@@ -295,6 +402,10 @@ namespace HushNetwork.Contracts
                 if (burnRate > 0) burnAmount = grossTokenOut * burnRate / 10000;
             }
 
+            object[] buySideFees = GetBuySideGasFees(tokenHash, (BigInteger)curve[1]);
+            BigInteger platformFee = (BigInteger)buySideFees[0];
+            BigInteger creatorFee = (BigInteger)buySideFees[1];
+
             return new object[]
             {
                 grossQuoteIn,
@@ -303,8 +414,8 @@ namespace HushNetwork.Contracts
                 grossTokenOut,
                 burnAmount,
                 grossTokenOut - burnAmount,
-                (BigInteger)0,
-                (BigInteger)0,
+                platformFee,
+                creatorFee,
                 ComputePrice(virtualQuote, virtualTokens, newRealQuote, newTokenReserve),
                 capped
             };
@@ -358,10 +469,25 @@ namespace HushNetwork.Contracts
             };
         }
 
-        private static void TransferQuoteAsset(UInt160 assetHash, UInt160 recipient, BigInteger amount)
+        private static object[] GetBuySideGasFees(UInt160 tokenHash, BigInteger quoteAssetCode)
+        {
+            if (quoteAssetCode != (BigInteger)QuoteAssetGas)
+                return new object[] { (BigInteger)0, (BigInteger)0 };
+
+            BigInteger platformFee = SafeTokenPlatformFee(tokenHash);
+            UInt160 creatorClaimant = SafeTokenCreatorClaimant(tokenHash);
+            BigInteger creatorFee =
+                creatorClaimant.IsValid && !creatorClaimant.IsZero
+                    ? SafeTokenCreatorFee(tokenHash)
+                    : (BigInteger)0;
+
+            return new object[] { platformFee, creatorFee };
+        }
+
+        private static void TransferQuoteAsset(UInt160 assetHash, UInt160 recipient, BigInteger amount, object data = null)
         {
             if (amount <= 0) return;
-            bool transferred = (bool)Contract.Call(assetHash, "transfer", CallFlags.All, new object[] { Runtime.ExecutingScriptHash, recipient, amount, null });
+            bool transferred = (bool)Contract.Call(assetHash, "transfer", CallFlags.All, new object[] { Runtime.ExecutingScriptHash, recipient, amount, data });
             ExecutionEngine.Assert(transferred, "Quote asset transfer failed");
         }
 
@@ -390,6 +516,7 @@ namespace HushNetwork.Contracts
             BigInteger virtualQuote = (BigInteger)pending[5];
             BigInteger virtualTokens = (BigInteger)pending[6];
             BigInteger graduationThreshold = (BigInteger)pending[7];
+            BigInteger launchProfileCode = (BigInteger)pending[8];
 
             StorageSetCurve(tokenHash, new object[]
             {
@@ -406,7 +533,8 @@ namespace HushNetwork.Contracts
                 (BigInteger)Runtime.Time,
                 curveInventory,
                 retainedInventory,
-                totalSupply
+                totalSupply,
+                launchProfileCode
             });
 
             StorageDeletePendingCurve(tokenHash);
@@ -483,7 +611,8 @@ namespace HushNetwork.Contracts
                     (BigInteger)0,
                     (BigInteger)0,
                     (BigInteger)0,
-                    (BigInteger)0
+                    (BigInteger)0,
+                    ""
                 };
             }
 
@@ -504,7 +633,8 @@ namespace HushNetwork.Contracts
                 (BigInteger)curve[11],
                 (BigInteger)curve[12],
                 (BigInteger)curve[13],
-                (BigInteger)curve[3]
+                (BigInteger)curve[3],
+                LaunchProfileToString((BigInteger)curve[14])
             };
         }
 
@@ -579,6 +709,21 @@ namespace HushNetwork.Contracts
             ExecutionEngine.Assert(creatorBalance >= curveInventory, "Insufficient owner balance for curve inventory");
 
             BigInteger quoteAssetCode = ParseQuoteAssetCode(quoteAsset);
+            object[] modeParams = GetFactoryModeParams(StorageGetAuthorizedFactory(), tokenHash);
+            string launchProfile = modeParams != null && modeParams.Length > 2
+                ? (string)modeParams[2]
+                : "starter";
+            if (modeParams != null && modeParams.Length >= 2)
+            {
+                ExecutionEngine.Assert((string)modeParams[0] == quoteAsset, "Speculation mode quote asset mismatch");
+                ExecutionEngine.Assert((BigInteger)modeParams[1] == curveInventory, "Speculation mode curve inventory mismatch");
+            }
+            BigInteger launchProfileCode = ParseLaunchProfileCode(launchProfile);
+            object[] launchSettings = DeriveLaunchProfileSettings(
+                quoteAssetCode,
+                curveInventory,
+                launchProfileCode
+            );
             StorageSetPendingCurve(tokenHash, new object[]
             {
                 creator,
@@ -586,9 +731,10 @@ namespace HushNetwork.Contracts
                 curveInventory,
                 creatorBalance - curveInventory,
                 SafeTokenTotalSupply(tokenHash),
-                GetDefaultVirtualQuote(quoteAssetCode),
-                GetDefaultVirtualTokens(quoteAssetCode),
-                GetDefaultGraduationThreshold(quoteAssetCode)
+                (BigInteger)launchSettings[0],
+                (BigInteger)launchSettings[1],
+                (BigInteger)launchSettings[2],
+                launchProfileCode
             });
         }
 
@@ -614,7 +760,19 @@ namespace HushNetwork.Contracts
                 ExecutionEngine.Assert(curve is not null, "Curve not found");
                 ExecutionEngine.Assert(QuoteAssetMatchesCaller((BigInteger)curve[1], caller), "Wrong quote asset for curve");
 
-                object[] buyQuote = BuildBuyQuote(tokenHash, curve, amount);
+                object[] buySideFees = GetBuySideGasFees(tokenHash, (BigInteger)curve[1]);
+                BigInteger buyPlatformFee = (BigInteger)buySideFees[0];
+                BigInteger buyCreatorFee = (BigInteger)buySideFees[1];
+                BigInteger totalBuyGasFee = buyPlatformFee + buyCreatorFee;
+                BigInteger curveQuoteIn = amount;
+
+                if (caller == GAS.Hash && totalBuyGasFee > 0)
+                {
+                    ExecutionEngine.Assert(amount > totalBuyGasFee, "Quote input too small for buy-side fees");
+                    curveQuoteIn = amount - totalBuyGasFee;
+                }
+
+                object[] buyQuote = BuildBuyQuote(tokenHash, curve, curveQuoteIn);
                 BigInteger quoteConsumed = (BigInteger)buyQuote[1];
                 BigInteger quoteRefund = (BigInteger)buyQuote[2];
                 BigInteger grossTokenOut = (BigInteger)buyQuote[3];
@@ -631,6 +789,16 @@ namespace HushNetwork.Contracts
 
                 if (quoteRefund > 0)
                     TransferQuoteAsset(caller, from, quoteRefund);
+
+                if (caller == GAS.Hash)
+                {
+                    UInt160 authorizedFactory = StorageGetAuthorizedFactory();
+                    if (buyPlatformFee > 0 && authorizedFactory.IsValid && !authorizedFactory.IsZero)
+                        TransferQuoteAsset(GAS.Hash, authorizedFactory, buyPlatformFee);
+
+                    if (buyCreatorFee > 0)
+                        TransferQuoteAsset(GAS.Hash, tokenHash, buyCreatorFee, "creator_fee_deposit");
+                }
 
                 bool transferred = (bool)Contract.Call(
                     tokenHash,
