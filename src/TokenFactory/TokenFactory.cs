@@ -36,6 +36,14 @@ namespace HushNetwork.Contracts
         private const byte Prefix_TemplateVersion     = 0xe6; // FEAT-079: BigInteger version of the configured template artifacts
         private const byte Prefix_TemplateHash        = 0xe7; // FEAT-079: UInt160 identity hash of the configured template artifacts
         private const byte Prefix_BondingCurveRouter  = 0xe8; // FEAT-074: UInt160 configured speculation router
+        private const byte Prefix_LeanNefBytes        = 0xe9; // FEAT-108: ByteString stored LeanTokenTemplate NEF
+        private const byte Prefix_LeanManifest        = 0xea; // FEAT-108: string stored LeanTokenTemplate manifest JSON
+        private const byte Prefix_LeanTemplateVersion = 0xeb; // FEAT-108: BigInteger version of lean template artifacts
+        private const byte Prefix_LeanTemplateHash    = 0xec; // FEAT-108: UInt160 identity hash of lean template artifacts
+        private const byte Prefix_TokenProfile        = 0x31; // FEAT-108: string profile by token hash
+
+        private const string ProfileFullNep17 = "full-nep17";
+        private const string ProfileLeanNep17 = "lean-nep17";
 
         // ── Owner storage helpers ─────────────────────────────────────────────
 
@@ -181,6 +189,41 @@ namespace HushNetwork.Contracts
         private static void StorageSetTemplateHash(UInt160 value) =>
             Storage.Put(new[] { Prefix_TemplateHash }, value);
 
+        private static ByteString StorageGetLeanNefBytes()
+        {
+            return Storage.Get(new[] { Prefix_LeanNefBytes });
+        }
+
+        private static void StorageSetLeanNefBytes(ByteString value) =>
+            Storage.Put(new[] { Prefix_LeanNefBytes }, value);
+
+        private static string StorageGetLeanManifest()
+        {
+            ByteString raw = Storage.Get(new[] { Prefix_LeanManifest });
+            return raw is null ? "" : (string)raw;
+        }
+
+        private static void StorageSetLeanManifest(string value) =>
+            Storage.Put(new[] { Prefix_LeanManifest }, value);
+
+        private static BigInteger StorageGetLeanTemplateVersion()
+        {
+            ByteString raw = Storage.Get(new[] { Prefix_LeanTemplateVersion });
+            return raw is null ? 1 : (BigInteger)raw;
+        }
+
+        private static void StorageSetLeanTemplateVersion(BigInteger value) =>
+            Storage.Put(new[] { Prefix_LeanTemplateVersion }, value);
+
+        private static UInt160 StorageGetLeanTemplateHash()
+        {
+            ByteString raw = Storage.Get(new[] { Prefix_LeanTemplateHash });
+            return raw is null ? UInt160.Zero : (UInt160)raw;
+        }
+
+        private static void StorageSetLeanTemplateHash(UInt160 value) =>
+            Storage.Put(new[] { Prefix_LeanTemplateHash }, value);
+
         private static UInt160 StorageGetBondingCurveRouter()
         {
             ByteString raw = Storage.Get(new[] { Prefix_BondingCurveRouter });
@@ -253,6 +296,25 @@ namespace HushNetwork.Contracts
         {
             ByteString key = (ByteString)new byte[] { Prefix_ModeParams } + (ByteString)contractHash;
             Storage.Delete(key);
+        }
+
+        // TokenProfile storage helpers (FEAT-108)
+        // Key: [0x31] + contractHash (20 bytes)
+        // Existing pre-FEAT-108 registry records default to full-nep17.
+
+        private static string StorageGetTokenProfile(UInt160 contractHash)
+        {
+            ByteString key = (ByteString)new byte[] { Prefix_TokenProfile } + (ByteString)contractHash;
+            ByteString raw = Storage.Get(key);
+            if (raw is null)
+                return StorageGetTokenInfo(contractHash) is null ? "" : ProfileFullNep17;
+            return (string)raw;
+        }
+
+        private static void StorageSetTokenProfile(UInt160 contractHash, string profile)
+        {
+            ByteString key = (ByteString)new byte[] { Prefix_TokenProfile } + (ByteString)contractHash;
+            Storage.Put(key, profile);
         }
 
         // ── Per-creator index helpers ─────────────────────────────────────────
@@ -344,6 +406,43 @@ namespace HushNetwork.Contracts
             return launchProfile;
         }
 
+        private static string NormalizeCreationProfile(string creationProfile)
+        {
+            if (creationProfile is null || creationProfile.Length == 0) return ProfileFullNep17;
+
+            bool supported =
+                creationProfile == ProfileFullNep17 ||
+                creationProfile == ProfileLeanNep17;
+            ExecutionEngine.Assert(supported, "Unsupported creation profile");
+            return creationProfile;
+        }
+
+        private static string ResolveCreationProfile(object[] tokenData, string mode)
+        {
+            if (mode == "community")
+                return tokenData.Length == 8 ? NormalizeCreationProfile((string)tokenData[7]) : ProfileFullNep17;
+
+            return tokenData.Length == 11 ? NormalizeCreationProfile((string)tokenData[10]) : ProfileFullNep17;
+        }
+
+        private static bool IsLeanProfile(string creationProfile) =>
+            creationProfile == ProfileLeanNep17;
+
+        private static bool IsLeanProfileToken(UInt160 tokenHash) =>
+            StorageGetTokenProfile(tokenHash) == ProfileLeanNep17;
+
+        private static void AssertFullProfileToken(UInt160 tokenHash)
+        {
+            ExecutionEngine.Assert(!IsLeanProfileToken(tokenHash), "Lean token uses local owner methods");
+        }
+
+        private static string CreateUniqueManifest(string manifest, bool isLeanProfile, BigInteger count)
+        {
+            int headerLength = isLeanProfile ? 27 : 23;
+            string prefix = isLeanProfile ? "LTT" : "TT";
+            return "{\"name\":\"" + prefix + StdLib.Itoa(count, 10) + "\"" + manifest.Substring(headerLength);
+        }
+
         private static object[] NormalizeSpeculationModeParams(object[] modeParams)
         {
             ExecutionEngine.Assert(modeParams != null && modeParams.Length >= 2, "Speculation modeParams must be [quoteAsset, curveInventory, launchProfile?]");
@@ -365,7 +464,7 @@ namespace HushNetwork.Contracts
             };
         }
 
-        private static void RegisterSpeculationCurve(UInt160 tokenHash, UInt160 creator, object[] modeParams)
+        private static void RegisterSpeculationCurve(UInt160 tokenHash, UInt160 creator, object[] modeParams, bool isLeanProfile)
         {
             object[] normalized = NormalizeSpeculationModeParams(modeParams);
             string quoteAsset = (string)normalized[0];
@@ -377,7 +476,15 @@ namespace HushNetwork.Contracts
             ExecutionEngine.Assert(creatorBalance >= curveInventory, "Insufficient owner balance for curve inventory");
 
             Contract.Call(routerHash, "registerCurve", CallFlags.All, new object[] { tokenHash, quoteAsset, curveInventory });
-            Contract.Call(tokenHash, "transferByFactory", CallFlags.All, new object[] { creator, routerHash, curveInventory, null });
+            if (isLeanProfile)
+            {
+                bool transferred = (bool)Contract.Call(tokenHash, "transfer", CallFlags.All, new object[] { creator, routerHash, curveInventory, null });
+                ExecutionEngine.Assert(transferred, "Curve inventory transfer failed");
+            }
+            else
+            {
+                Contract.Call(tokenHash, "transferByFactory", CallFlags.All, new object[] { creator, routerHash, curveInventory, null });
+            }
         }
 
         // ── Events ───────────────────────────────────────────────────────────
@@ -426,6 +533,12 @@ namespace HushNetwork.Contracts
         [DisplayName("TemplateUpgraded")]
         public static event Action<UInt160, UInt160, BigInteger> OnTemplateUpgraded;
 
+        [DisplayName("LeanTemplateUpgraded")]
+        public static event Action<UInt160, UInt160, BigInteger> OnLeanTemplateUpgraded;
+
+        [DisplayName("TokenProfileRecorded")]
+        public static event Action<UInt160, string> OnTokenProfileRecorded;
+
         [DisplayName("Claimed")]
         public static event Action<UInt160, BigInteger, UInt160> OnClaimed;
 
@@ -451,18 +564,17 @@ namespace HushNetwork.Contracts
             // Guard 2: Factory not paused
             AssertFactoryActive();
 
-            // Guard 3: Factory initialized (NEF bytes stored)
-            ByteString nef = StorageGetNefBytes();
-            ExecutionEngine.Assert(nef is not null, "Factory not initialized");
-
-            // Guard 4: Sufficient fee
+            // Guard 3: Sufficient fee
             ExecutionEngine.Assert(amount >= StorageGetMinFee(), "Insufficient fee");
 
-            // Guard 5: Data format — expect object[]{name, symbol, supply, decimals, mode, imageUrl, creatorFeeRate}
+            // Guard 4: Data format - creation profile is appended for FEAT-108.
             object[] tokenData = (object[])data;
-            ExecutionEngine.Assert(tokenData.Length == 7 || tokenData.Length == 9 || tokenData.Length == 10, "Expected 7, 9, or 10 data elements");
+            ExecutionEngine.Assert(
+                tokenData.Length == 7 || tokenData.Length == 8 ||
+                tokenData.Length == 9 || tokenData.Length == 10 || tokenData.Length == 11,
+                "Expected 7, 8, 9, 10, or 11 data elements");
 
-            // Guard 6: Mode check — only "community" supported in FEAT-070
+            // Guard 5: Mode check
             string mode = (string)tokenData[4];
             ExecutionEngine.Assert(mode == "community" || mode == "speculation", "Unsupported mode");
 
@@ -478,22 +590,27 @@ namespace HushNetwork.Contracts
             BigInteger supply   = (BigInteger)tokenData[2];
             BigInteger decimals = (BigInteger)tokenData[3];
             object[] speculationModeParams = null;
+            string creationProfile = ResolveCreationProfile(tokenData, mode);
+            bool isLeanProfile = IsLeanProfile(creationProfile);
 
             if (mode == "community")
             {
-                ExecutionEngine.Assert(tokenData.Length == 7, "Community launch expects 7 data elements");
+                ExecutionEngine.Assert(tokenData.Length == 7 || tokenData.Length == 8, "Community launch expects 7 or 8 data elements");
             }
             else
             {
-                ExecutionEngine.Assert(tokenData.Length == 9 || tokenData.Length == 10, "Speculation launch expects 9 or 10 data elements");
+                ExecutionEngine.Assert(tokenData.Length == 9 || tokenData.Length == 10 || tokenData.Length == 11, "Speculation launch expects 9, 10, or 11 data elements");
                 speculationModeParams = NormalizeSpeculationModeParams(new object[]
                 {
                     (string)tokenData[7],
                     (BigInteger)tokenData[8],
-                    tokenData.Length > 9 ? (string)tokenData[9] : "starter"
+                    tokenData.Length == 10 || tokenData.Length == 11 ? (string)tokenData[9] : "starter"
                 });
                 ExecutionEngine.Assert((BigInteger)speculationModeParams[1] <= supply, "Curve inventory exceeds initial supply");
             }
+
+            ByteString nef = isLeanProfile ? StorageGetLeanNefBytes() : StorageGetNefBytes();
+            ExecutionEngine.Assert(nef is not null, isLeanProfile ? "Lean template not initialized" : "Factory not initialized");
 
             // Build 13-element deploy params for TokenTemplate._deploy()
             // Bool params (mintable, upgradeable, pausable) MUST be BigInteger 0/1, NOT C# bool
@@ -521,9 +638,9 @@ namespace HushNetwork.Contracts
             // We use the current global token count as a unique suffix: "TT0", "TT1", etc.
             // The stored manifest starts with {"name":"TokenTemplate" (23 chars); we replace
             // only the name field while preserving all ABI/groups/trust data unchanged.
-            string manifest = StorageGetManifest();
+            string manifest = isLeanProfile ? StorageGetLeanManifest() : StorageGetManifest();
             BigInteger count = StorageGetTotalTokenCount();
-            string uniqueManifest = "{\"name\":\"TT" + StdLib.Itoa(count, 10) + "\"" + manifest.Substring(23);
+            string uniqueManifest = CreateUniqueManifest(manifest, isLeanProfile, count);
             Contract deployed = ContractManagement.Deploy(nef, uniqueManifest, tokenParams);
             UInt160 contractHash = deployed.Hash;
 
@@ -545,11 +662,13 @@ namespace HushNetwork.Contracts
                 (BigInteger)0,              // [9] locked — 0 = unlocked at creation
             };
             StorageSetTokenInfo(contractHash, tokenInfo);
+            StorageSetTokenProfile(contractHash, creationProfile);
+            OnTokenProfileRecorded(contractHash, creationProfile);
 
             if (speculationModeParams != null)
             {
                 StorageSetModeParams(contractHash, speculationModeParams);
-                RegisterSpeculationCurve(contractHash, from, speculationModeParams);
+                RegisterSpeculationCurve(contractHash, from, speculationModeParams, isLeanProfile);
             }
 
             // Emit event
@@ -664,6 +783,26 @@ namespace HushNetwork.Contracts
         public static object[] GetModeParams(UInt160 tokenHash) =>
             StorageGetModeParams(tokenHash);
 
+        [Safe]
+        public static string GetTokenProfile(UInt160 tokenHash) =>
+            StorageGetTokenProfile(tokenHash);
+
+        [Safe]
+        public static bool IsLeanInitialized() =>
+            StorageGetLeanNefBytes() is not null;
+
+        [Safe]
+        public static object[] GetLeanTemplateConfig()
+        {
+            return new object[]
+            {
+                StorageGetLeanTemplateHash(),
+                StorageGetLeanTemplateVersion(),
+                StorageGetLeanNefBytes() is not null,
+                StorageGetLeanManifest().Length > 0,
+            };
+        }
+
         // ── Admin functions ───────────────────────────────────────────────────
 
         public static void SetNefAndManifest(ByteString nef, string manifest)
@@ -676,6 +815,18 @@ namespace HushNetwork.Contracts
             StorageSetNefBytes(nef);
             StorageSetManifest(manifest);
             StorageSetTemplateHash(ComputeTemplateHash(nef, manifest));
+        }
+
+        public static void SetLeanNefAndManifest(ByteString nef, string manifest)
+        {
+            AssertOwnerAuthorized();
+            ExecutionEngine.Assert(nef is not null, "NEF must not be empty");
+            ExecutionEngine.Assert(nef.Length > 0, "NEF must not be empty");
+            ExecutionEngine.Assert(manifest != null && manifest.Length > 0, "Manifest must not be empty");
+            StdLib.JsonDeserialize(manifest);
+            StorageSetLeanNefBytes(nef);
+            StorageSetLeanManifest(manifest);
+            StorageSetLeanTemplateHash(ComputeTemplateHash(nef, manifest));
         }
 
         public static void SetFee(BigInteger standardFeeDataoshi)
@@ -768,6 +919,27 @@ namespace HushNetwork.Contracts
             OnTemplateUpgraded(oldHash, newHash, newVersion);
         }
 
+        public static void UpgradeLeanTemplate(ByteString nef, string manifest)
+        {
+            AssertOwnerAuthorized();
+            ExecutionEngine.Assert(nef is not null, "NEF must not be empty");
+            ExecutionEngine.Assert(nef.Length > 0, "NEF must not be empty");
+            ExecutionEngine.Assert(manifest != null && manifest.Length > 0, "Manifest must not be empty");
+
+            StdLib.JsonDeserialize(manifest);
+
+            UInt160 oldHash = StorageGetLeanTemplateHash();
+            UInt160 newHash = ComputeTemplateHash(nef, manifest);
+            BigInteger newVersion = StorageGetLeanTemplateVersion() + 1;
+
+            StorageSetLeanNefBytes(nef);
+            StorageSetLeanManifest(manifest);
+            StorageSetLeanTemplateHash(newHash);
+            StorageSetLeanTemplateVersion(newVersion);
+
+            OnLeanTemplateUpgraded(oldHash, newHash, newVersion);
+        }
+
         public static void ClaimAll(UInt160 assetHash)
         {
             AssertOwnerAuthorized();
@@ -801,6 +973,7 @@ namespace HushNetwork.Contracts
             AssertFactoryActive();
             object[] tokenInfo = StorageGetTokenInfo(tokenHash);
             ExecutionEngine.Assert(tokenInfo != null, "Token not found");
+            AssertFullProfileToken(tokenHash);
             UInt160 creator = (UInt160)tokenInfo[1];
             ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
             ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
@@ -820,6 +993,7 @@ namespace HushNetwork.Contracts
             AssertFactoryActive();
             object[] tokenInfo = StorageGetTokenInfo(tokenHash);
             ExecutionEngine.Assert(tokenInfo != null, "Token not found");
+            AssertFullProfileToken(tokenHash);
             UInt160 creator = (UInt160)tokenInfo[1];
             ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
             ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
@@ -836,6 +1010,7 @@ namespace HushNetwork.Contracts
             AssertFactoryActive();
             object[] tokenInfo = StorageGetTokenInfo(tokenHash);
             ExecutionEngine.Assert(tokenInfo != null, "Token not found");
+            AssertFullProfileToken(tokenHash);
             UInt160 creator = (UInt160)tokenInfo[1];
             ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
             ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
@@ -851,6 +1026,7 @@ namespace HushNetwork.Contracts
             AssertFactoryActive();
             object[] tokenInfo = StorageGetTokenInfo(tokenHash);
             ExecutionEngine.Assert(tokenInfo != null, "Token not found");
+            AssertFullProfileToken(tokenHash);
             UInt160 creator = (UInt160)tokenInfo[1];
             ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
             ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
@@ -869,6 +1045,7 @@ namespace HushNetwork.Contracts
             AssertFactoryActive();
             object[] tokenInfo = StorageGetTokenInfo(tokenHash);
             ExecutionEngine.Assert(tokenInfo != null, "Token not found");
+            AssertFullProfileToken(tokenHash);
             UInt160 creator = (UInt160)tokenInfo[1];
             ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
             ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
@@ -897,6 +1074,7 @@ namespace HushNetwork.Contracts
             AssertFactoryActive();
             object[] tokenInfo = StorageGetTokenInfo(tokenHash);
             ExecutionEngine.Assert(tokenInfo != null, "Token not found");
+            AssertFullProfileToken(tokenHash);
             UInt160 creator = (UInt160)tokenInfo[1];
             ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
             ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token is locked");
@@ -914,7 +1092,7 @@ namespace HushNetwork.Contracts
                 StorageSetModeParams(tokenHash, normalizedModeParams);
                 tokenInfo[3] = newMode;
                 StorageSetTokenInfo(tokenHash, tokenInfo);
-                RegisterSpeculationCurve(tokenHash, creator, normalizedModeParams);
+                RegisterSpeculationCurve(tokenHash, creator, normalizedModeParams, false);
                 OnTokenModeChanged(tokenHash, oldMode, newMode);
                 return;
             }
@@ -941,6 +1119,7 @@ namespace HushNetwork.Contracts
             AssertFactoryActive();
             object[] tokenInfo = StorageGetTokenInfo(tokenHash);
             ExecutionEngine.Assert(tokenInfo != null, "Token not found");
+            AssertFullProfileToken(tokenHash);
             UInt160 creator = (UInt160)tokenInfo[1];
             ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
             ExecutionEngine.Assert((BigInteger)tokenInfo[9] == 0, "Token already locked");
@@ -979,6 +1158,7 @@ namespace HushNetwork.Contracts
             AssertFactoryActive();
             object[] tokenInfo = StorageGetTokenInfo(tokenHash);
             ExecutionEngine.Assert(tokenInfo != null, "Token not found");
+            AssertFullProfileToken(tokenHash);
 
             UInt160 creator = (UInt160)tokenInfo[1];
             ExecutionEngine.Assert(Runtime.CheckWitness(creator), "No authorization");
@@ -1043,7 +1223,7 @@ namespace HushNetwork.Contracts
                     StorageSetModeParams(tokenHash, normalizedModeParams);
                     tokenInfo[3] = newMode;
                     StorageSetTokenInfo(tokenHash, tokenInfo);
-                    RegisterSpeculationCurve(tokenHash, creator, normalizedModeParams);
+                    RegisterSpeculationCurve(tokenHash, creator, normalizedModeParams, false);
                 }
                 else
                 {
@@ -1106,6 +1286,7 @@ namespace HushNetwork.Contracts
                 UInt160 tokenHash = StorageGetGlobalTokenAtIndex(idx);
                 if (tokenHash is not null)
                 {
+                    if (IsLeanProfileToken(tokenHash)) continue;
                     Contract.Call(tokenHash, "authorizeFactory", CallFlags.All, new object[] { newFactoryHash });
                     count++;
                 }
@@ -1129,6 +1310,7 @@ namespace HushNetwork.Contracts
                 UInt160 tokenHash = StorageGetGlobalTokenAtIndex(idx);
                 if (tokenHash is not null)
                 {
+                    if (IsLeanProfileToken(tokenHash)) continue;
                     Contract.Call(tokenHash, "setPlatformFeeRate", CallFlags.All, new object[] { newRate });
                     count++;
                 }
@@ -1159,6 +1341,8 @@ namespace HushNetwork.Contracts
             StorageSetPlatformFeeRate(0);       // FEAT-078 default: no platform fee on transfers
             StorageSetTemplateVersion(1);       // FEAT-079 default: initial configured template version
             StorageSetTemplateHash(UInt160.Zero);
+            StorageSetLeanTemplateVersion(1);   // FEAT-108 default: initial configured lean template version
+            StorageSetLeanTemplateHash(UInt160.Zero);
             OnSetOwner(null, initialOwner);
         }
 

@@ -57,6 +57,9 @@ public abstract class TokenFactoryContract : SmartContract
     [DisplayName("setNefAndManifest")]
     public abstract void SetNefAndManifest(byte[]? nef, string? manifest);
 
+    [DisplayName("setLeanNefAndManifest")]
+    public abstract void SetLeanNefAndManifest(byte[]? nef, string? manifest);
+
     [DisplayName("setFee")]
     public abstract void SetFee(BigInteger? standardFeeDataoshi);
 
@@ -103,6 +106,15 @@ public abstract class TokenFactoryContract : SmartContract
     [DisplayName("getModeParams")]
     public abstract object[]? GetModeParams(UInt160? tokenHash);
 
+    [DisplayName("getTokenProfile")]
+    public abstract string? GetTokenProfile(UInt160? tokenHash);
+
+    [DisplayName("isLeanInitialized")]
+    public abstract bool IsLeanInitialized();
+
+    [DisplayName("getLeanTemplateConfig")]
+    public abstract object[]? GetLeanTemplateConfig();
+
     // ── FEAT-078: Admin setters ───────────────────────────────────────────────
 
     [DisplayName("setUpdateFee")]
@@ -116,6 +128,9 @@ public abstract class TokenFactoryContract : SmartContract
 
     [DisplayName("upgradeTemplate")]
     public abstract void UpgradeTemplate(byte[]? nef, string? manifest);
+
+    [DisplayName("upgradeLeanTemplate")]
+    public abstract void UpgradeLeanTemplate(byte[]? nef, string? manifest);
 
     [DisplayName("claimAll")]
     public abstract void ClaimAll(UInt160? assetHash);
