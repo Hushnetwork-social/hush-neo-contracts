@@ -111,14 +111,26 @@ namespace HushNetwork.Contracts
         private static void StorageSetCreatorFeeRate(BigInteger value) => Storage.Put(new[] { Prefix_CreatorFeeRate }, value);
 
         private static BigInteger StorageGetBurnRate() => StorageGetInteger(Prefix_BurnRate);
+        private static void StorageSetBurnRate(BigInteger value) => Storage.Put(new[] { Prefix_BurnRate }, value);
 
         private static BigInteger StorageGetCreatorClaimable() => StorageGetInteger(Prefix_CreatorClaimable);
+        private static void StorageSetCreatorClaimable(BigInteger value)
+        {
+            if (value > 0)
+                Storage.Put(new[] { Prefix_CreatorClaimable }, value);
+            else
+                Storage.Delete(new[] { Prefix_CreatorClaimable });
+        }
 
         private static UInt160 StorageGetCreatorClaimant() => StorageGetHash(Prefix_CreatorClaimant);
         private static void StorageSetCreatorClaimant(UInt160 value) => Storage.Put(new[] { Prefix_CreatorClaimant }, value);
 
         private static UInt160 StorageGetOwner() => StorageGetHash(Prefix_Owner);
         private static void StorageSetOwner(UInt160 value) => Storage.Put(new[] { Prefix_Owner }, value);
+
+        private static void StorageSetLocked(bool value) => StorageSetFlag(Prefix_Locked, value);
+
+        private static void StorageSetPaused(bool value) => StorageSetFlag(Prefix_Paused, value);
 
         private static bool IsOwner()
         {
@@ -178,6 +190,55 @@ namespace HushNetwork.Contracts
         [Safe]
         public static bool verify() => IsOwner();
 
+        [Safe]
+        public static object[] quoteTransfer(UInt160 from, UInt160 to, BigInteger amount)
+        {
+            BigInteger grossAmount = amount < 0 ? 0 : amount;
+            bool isMint = from == UInt160.Zero;
+            bool isDirectBurn = !isMint && to == UInt160.Zero;
+
+            BigInteger transferBurnAmount = BigInteger.Zero;
+            BigInteger totalTokenBurned = BigInteger.Zero;
+            BigInteger recipientAmount = grossAmount;
+
+            if (isDirectBurn)
+            {
+                recipientAmount = BigInteger.Zero;
+                totalTokenBurned = grossAmount;
+            }
+            else if (!isMint && grossAmount > 0)
+            {
+                BigInteger burnRate = StorageGetBurnRate();
+                if (burnRate > 0)
+                {
+                    transferBurnAmount = grossAmount * burnRate / 10000;
+                    if (transferBurnAmount > 0)
+                    {
+                        recipientAmount -= transferBurnAmount;
+                        totalTokenBurned = transferBurnAmount;
+                    }
+                }
+            }
+
+            BigInteger platformFeeRate = isMint ? BigInteger.Zero : StorageGetPlatformFeeRate();
+            BigInteger creatorFeeRate = isMint || StorageGetCreatorClaimant() == UInt160.Zero
+                ? BigInteger.Zero
+                : StorageGetCreatorFeeRate();
+
+            return new object[]
+            {
+                grossAmount,
+                recipientAmount,
+                transferBurnAmount,
+                totalTokenBurned,
+                isMint ? BigInteger.Zero : platformFeeRate,
+                creatorFeeRate,
+                isMint ? BigInteger.Zero : platformFeeRate + creatorFeeRate,
+                isMint ? BigInteger.One : BigInteger.Zero,
+                isDirectBurn ? BigInteger.One : BigInteger.Zero
+            };
+        }
+
         public delegate void OnOwnerChangedDelegate(UInt160 previousOwner, UInt160 newOwner);
 
         [DisplayName("OwnerChanged")]
@@ -188,7 +249,55 @@ namespace HushNetwork.Contracts
         [DisplayName("MetadataUriSet")]
         public static event OnMetadataUriSetDelegate OnMetadataUriSet;
 
-        // First owner-local mutator; the remaining lifecycle methods use the same local storage model.
+        public delegate void OnLockedDelegate(ulong timestamp);
+
+        [DisplayName("Locked")]
+        public static event OnLockedDelegate OnLocked;
+
+        public delegate void OnBurnRateSetDelegate(UInt160 caller, BigInteger newRate, ulong timestamp);
+
+        [DisplayName("BurnRateSet")]
+        public static event OnBurnRateSetDelegate OnBurnRateSet;
+
+        public delegate void OnMaxSupplySetDelegate(UInt160 caller, BigInteger newMax, ulong timestamp);
+
+        [DisplayName("MaxSupplySet")]
+        public static event OnMaxSupplySetDelegate OnMaxSupplySet;
+
+        public delegate void OnCreatorFeeRateSetDelegate(UInt160 caller, BigInteger newRate, ulong timestamp);
+
+        [DisplayName("CreatorFeeRateSet")]
+        public static event OnCreatorFeeRateSetDelegate OnCreatorFeeRateSet;
+
+        public delegate void OnPlatformFeeRateSetDelegate(UInt160 caller, BigInteger newRate, ulong timestamp);
+
+        [DisplayName("PlatformFeeRateSet")]
+        public static event OnPlatformFeeRateSetDelegate OnPlatformFeeRateSet;
+
+        public delegate void OnCreatorFeesClaimedDelegate(UInt160 claimant, BigInteger amount, ulong timestamp);
+
+        [DisplayName("CreatorFeesClaimed")]
+        public static event OnCreatorFeesClaimedDelegate OnCreatorFeesClaimed;
+
+        public static void setOwner(UInt160 newOwner)
+        {
+            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(newOwner.IsValid, "Invalid owner address");
+
+            UInt160 previous = StorageGetOwner();
+            StorageSetOwner(newOwner);
+            OnOwnerChanged(previous, newOwner);
+        }
+
+        [DisplayName("lock")]
+        public static void Lock()
+        {
+            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(!StorageGetLocked(), "Already locked");
+            StorageSetLocked(true);
+            OnLocked(Runtime.Time);
+        }
+
         public static void SetMetadataUri(string uri)
         {
             ExecutionEngine.Assert(IsOwner(), "No authorization");
@@ -196,6 +305,184 @@ namespace HushNetwork.Contracts
             ExecutionEngine.Assert(uri != null && uri.Length > 0, "URI must not be null or empty");
             StorageSetMetadataUri(uri);
             OnMetadataUriSet(StorageGetOwner(), uri, Runtime.Time);
+        }
+
+        public static void SetMaxSupply(BigInteger newMax)
+        {
+            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            ExecutionEngine.Assert(newMax >= 0, "MaxSupply must be >= 0");
+
+            if (newMax > 0)
+            {
+                BigInteger currentSupply = StorageGetInteger(0x00);
+                ExecutionEngine.Assert(newMax >= currentSupply, "NewMaxSupply cannot be less than current totalSupply");
+            }
+
+            StorageSetMaxSupply(newMax);
+            OnMaxSupplySet(StorageGetOwner(), newMax, Runtime.Time);
+        }
+
+        public static void SetBurnRate(BigInteger bps)
+        {
+            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            ExecutionEngine.Assert(bps >= 0 && bps <= 1000, "BurnRate must be 0-1000 basis points");
+            StorageSetBurnRate(bps);
+            OnBurnRateSet(StorageGetOwner(), bps, Runtime.Time);
+        }
+
+        public static void SetCreatorFee(BigInteger datoshi)
+        {
+            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            ExecutionEngine.Assert(datoshi >= 0 && datoshi <= 5_000_000, "CreatorFee must be 0-5,000,000 datoshi");
+            StorageSetCreatorFeeRate(datoshi);
+            OnCreatorFeeRateSet(StorageGetOwner(), datoshi, Runtime.Time);
+        }
+
+        public static void SetPlatformFeeRate(BigInteger datoshi)
+        {
+            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            ExecutionEngine.Assert(datoshi >= 0, "PlatformFeeRate must be >= 0");
+            StorageSetPlatformFeeRate(datoshi);
+            OnPlatformFeeRateSet(StorageGetOwner(), datoshi, Runtime.Time);
+        }
+
+        public static void setPausable(bool value)
+        {
+            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            ExecutionEngine.Assert(StorageGetUpgradeable(), "Contract is not upgradeable");
+            StorageSetPausable(value);
+        }
+
+        public static void pause()
+        {
+            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(StorageGetPausable(), "Token is not pausable");
+            StorageSetPaused(true);
+        }
+
+        public static void unpause()
+        {
+            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(StorageGetPausable(), "Token is not pausable");
+            StorageSetPaused(false);
+        }
+
+        public static new bool Transfer(UInt160 from, UInt160 to, BigInteger amount, object data = null)
+        {
+            ExecutionEngine.Assert(!StorageGetPaused(), "Token transfers are paused");
+
+            if (to == UInt160.Zero)
+            {
+                Burn(from, amount);
+                return true;
+            }
+
+            if (from != UInt160.Zero)
+            {
+                BigInteger burnRate = StorageGetBurnRate();
+                if (burnRate > 0)
+                {
+                    BigInteger burnAmount = amount * burnRate / 10000;
+                    if (burnAmount > 0)
+                    {
+                        ExecutionEngine.Assert(amount > burnAmount, "Burn amount exceeds transfer amount");
+                        Burn(from, burnAmount);
+                        amount -= burnAmount;
+                    }
+                }
+            }
+
+            return Nep17Token.Transfer(from, to, amount, data);
+        }
+
+        public static void burn(BigInteger amount)
+        {
+            ExecutionEngine.Assert(amount > 0, "Amount must be positive");
+
+            UInt160 caller = Runtime.Transaction.Sender;
+            ExecutionEngine.Assert(Runtime.CheckWitness(caller), "No authorization");
+            ExecutionEngine.Assert(BalanceOf(caller) >= amount, "Insufficient balance");
+            ExecutionEngine.Assert(Transfer(caller, UInt160.Zero, amount, null), "Burn failed");
+        }
+
+        public static void mint(UInt160 to, BigInteger amount)
+        {
+            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            ExecutionEngine.Assert(StorageGetMintable(), "Token is not mintable");
+            ExecutionEngine.Assert(amount > 0, "Amount must be positive");
+            ExecutionEngine.Assert(to.IsValid && !to.IsZero, "Invalid recipient");
+
+            BigInteger maxSupply = StorageGetMaxSupply();
+            if (maxSupply > 0)
+            {
+                BigInteger currentSupply = StorageGetInteger(0x00);
+                ExecutionEngine.Assert(currentSupply + amount <= maxSupply, "MaxSupply exceeded");
+            }
+
+            Nep17Token.Mint(to, amount);
+        }
+
+        public static void claimCreatorFees()
+        {
+            ClaimCreatorFeesInternal(StorageGetCreatorClaimable());
+        }
+
+        public static void claimCreatorFee(BigInteger amount)
+        {
+            ClaimCreatorFeesInternal(amount);
+        }
+
+        private static void ClaimCreatorFeesInternal(BigInteger amount)
+        {
+            UInt160 claimant = StorageGetCreatorClaimant();
+            ExecutionEngine.Assert(claimant.IsValid && !claimant.IsZero, "Creator claimant not configured");
+            ExecutionEngine.Assert(Runtime.CheckWitness(claimant), "No authorization");
+            ExecutionEngine.Assert(amount > 0, "Amount must be positive");
+
+            BigInteger claimable = StorageGetCreatorClaimable();
+            ExecutionEngine.Assert(claimable >= amount, "Insufficient creator fee balance");
+
+            bool transferred = GAS.Transfer(Runtime.ExecutingScriptHash, claimant, amount, null);
+            ExecutionEngine.Assert(transferred, "Creator fee claim transfer failed");
+
+            StorageSetCreatorClaimable(claimable - amount);
+            OnCreatorFeesClaimed(claimant, amount, Runtime.Time);
+        }
+
+        public static void MintByFactory(UInt160 to, BigInteger amount)
+        {
+            ExecutionEngine.Assert(false, "Lean token has no factory mint authority");
+        }
+
+        public static void TransferByFactory(UInt160 from, UInt160 to, BigInteger amount, object data = null)
+        {
+            ExecutionEngine.Assert(false, "Lean token has no factory transfer authority");
+        }
+
+        public static void AuthorizeFactory(UInt160 newFactory)
+        {
+            ExecutionEngine.Assert(false, "Lean token has no factory authority");
+        }
+
+        [DisplayName("onNEP17Payment")]
+        public static void OnNEP17Payment(UInt160 from, BigInteger amount, object data)
+        {
+            if (Runtime.CallingScriptHash != GAS.Hash)
+                throw new InvalidOperationException("Only GAS accepted.");
+        }
+
+        public static void update(ByteString nefFile, string manifest, object data = null)
+        {
+            ExecutionEngine.Assert(IsOwner(), "No authorization");
+            ExecutionEngine.Assert(StorageGetUpgradeable(), "Contract is not upgradeable");
+            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            ContractManagement.Update(nefFile, manifest, data);
         }
 
         public static void _deploy(object data, bool update)
