@@ -185,6 +185,160 @@ public class TokenFactoryLeanProfileTests
         });
     }
 
+    [Test]
+    public void SetAllTokensPlatformFee_UpdatesExistingLeanTokenAndFutureLeanDefault()
+    {
+        var engine = new TestEngine(true);
+        var owner = TestEngine.GetNewSigner();
+        var creator = TestEngine.GetNewSigner();
+        engine.SetTransactionSigners(owner);
+        using var factory = DeployFactory(engine, owner.Account);
+        BootstrapFullAndLeanTemplates(factory);
+
+        SimulateGasPayment(engine, factory, creator, 1_500_000_000, new object[]
+        {
+            "Lean Existing Platform Fee",
+            "LEP",
+            (BigInteger)1_000,
+            (BigInteger)8,
+            "community",
+            "",
+            (BigInteger)0,
+            "lean-nep17"
+        });
+
+        UInt160 existingHash = GetLatestCreatedToken(factory, creator.Account);
+        using var existingToken = engine.FromHash<LeanTokenTemplateContract>(existingHash, true);
+
+        engine.SetTransactionSigners(owner);
+        factory.SetAllTokensPlatformFee(800_000, 0, 10);
+
+        SimulateGasPayment(engine, factory, creator, 1_500_000_000, new object[]
+        {
+            "Lean Future Platform Fee",
+            "LFP",
+            (BigInteger)1_000,
+            (BigInteger)8,
+            "community",
+            "",
+            (BigInteger)0,
+            "lean-nep17"
+        });
+
+        UInt160 futureHash = GetLatestCreatedToken(factory, creator.Account);
+        using var futureToken = engine.FromHash<LeanTokenTemplateContract>(futureHash, true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(factory.GetPlatformFeeRate(), Is.EqualTo((BigInteger)800_000));
+            Assert.That(existingToken.getPlatformFeeRate(), Is.EqualTo((BigInteger)800_000));
+            Assert.That(futureToken.getPlatformFeeRate(), Is.EqualTo((BigInteger)800_000));
+        });
+    }
+
+    [Test]
+    public void SetAllTokensPlatformFee_UpdatesReadOnlyLeanTokenButOwnerEconomicsRemainLocked()
+    {
+        var engine = new TestEngine(true);
+        var owner = TestEngine.GetNewSigner();
+        var creator = TestEngine.GetNewSigner();
+        engine.SetTransactionSigners(owner);
+        using var factory = DeployFactory(engine, owner.Account);
+        BootstrapFullAndLeanTemplates(factory);
+
+        SimulateGasPayment(engine, factory, creator, 1_500_000_000, new object[]
+        {
+            "Lean Read Only Platform Fee",
+            "LRP",
+            (BigInteger)1_000,
+            (BigInteger)8,
+            "community",
+            "",
+            (BigInteger)0,
+            "lean-nep17"
+        });
+
+        UInt160 tokenHash = GetLatestCreatedToken(factory, creator.Account);
+        using var token = engine.FromHash<LeanTokenTemplateContract>(tokenHash, true);
+
+        engine.SetTransactionSigners(creator);
+        token.Lock();
+
+        engine.SetTransactionSigners(owner);
+        factory.SetAllTokensPlatformFee(900_000, 0, 10);
+
+        engine.SetTransactionSigners(creator);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(token.isLocked(), Is.True);
+            Assert.That(token.getPlatformFeeRate(), Is.EqualTo((BigInteger)900_000));
+            Assert.That(() => token.SetBurnRate(100), Throws.Exception);
+            Assert.That(() => token.SetCreatorFee(100_000), Throws.Exception);
+        });
+    }
+
+    [Test]
+    public void LeanEconomicsStorage_RemainsIsolatedAcrossTokensAfterPlatformBatchUpdate()
+    {
+        var engine = new TestEngine(true);
+        var owner = TestEngine.GetNewSigner();
+        var creatorA = TestEngine.GetNewSigner();
+        var creatorB = TestEngine.GetNewSigner();
+        engine.SetTransactionSigners(owner);
+        using var factory = DeployFactory(engine, owner.Account);
+        BootstrapFullAndLeanTemplates(factory);
+
+        SimulateGasPayment(engine, factory, creatorA, 1_500_000_000, new object[]
+        {
+            "Lean Alpha Economics",
+            "LAE",
+            (BigInteger)1_000,
+            (BigInteger)8,
+            "community",
+            "",
+            (BigInteger)0,
+            "lean-nep17"
+        });
+        UInt160 tokenAHash = GetLatestCreatedToken(factory, creatorA.Account);
+        using var tokenA = engine.FromHash<LeanTokenTemplateContract>(tokenAHash, true);
+
+        SimulateGasPayment(engine, factory, creatorB, 1_500_000_000, new object[]
+        {
+            "Lean Beta Economics",
+            "LBE",
+            (BigInteger)1_000,
+            (BigInteger)8,
+            "community",
+            "",
+            (BigInteger)0,
+            "lean-nep17"
+        });
+        UInt160 tokenBHash = GetLatestCreatedToken(factory, creatorB.Account);
+        using var tokenB = engine.FromHash<LeanTokenTemplateContract>(tokenBHash, true);
+
+        engine.SetTransactionSigners(creatorA);
+        tokenA.SetBurnRate(150);
+        tokenA.SetCreatorFee(200_000);
+
+        engine.SetTransactionSigners(creatorB);
+        tokenB.SetBurnRate(250);
+        tokenB.SetCreatorFee(300_000);
+
+        engine.SetTransactionSigners(owner);
+        factory.SetAllTokensPlatformFee(700_000, 0, 10);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(tokenA.getPlatformFeeRate(), Is.EqualTo((BigInteger)700_000));
+            Assert.That(tokenB.getPlatformFeeRate(), Is.EqualTo((BigInteger)700_000));
+            Assert.That(tokenA.getBurnRate(), Is.EqualTo((BigInteger)150));
+            Assert.That(tokenB.getBurnRate(), Is.EqualTo((BigInteger)250));
+            Assert.That(tokenA.getCreatorFeeRate(), Is.EqualTo((BigInteger)200_000));
+            Assert.That(tokenB.getCreatorFeeRate(), Is.EqualTo((BigInteger)300_000));
+        });
+    }
+
     private static TokenFactoryContract DeployFactory(TestEngine engine, UInt160 ownerAddress)
     {
         var nefPath = Path.Combine(ArtifactsPath, "TokenFactory.nef");

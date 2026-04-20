@@ -343,11 +343,10 @@ namespace HushNetwork.Contracts
 
         public static void SetPlatformFeeRate(BigInteger datoshi)
         {
-            ExecutionEngine.Assert(IsOwner(), "No authorization");
-            ExecutionEngine.Assert(!StorageGetLocked(), "Contract is locked");
+            ExecutionEngine.Assert(Runtime.CallingScriptHash == StorageGetLaunchFactory(), "No authorization");
             ExecutionEngine.Assert(datoshi >= 0, "PlatformFeeRate must be >= 0");
             StorageSetPlatformFeeRate(datoshi);
-            OnPlatformFeeRateSet(StorageGetOwner(), datoshi, Runtime.Time);
+            OnPlatformFeeRateSet(Runtime.CallingScriptHash, datoshi, Runtime.Time);
         }
 
         public static void setPausable(bool value)
