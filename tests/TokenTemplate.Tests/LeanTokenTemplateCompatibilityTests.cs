@@ -140,6 +140,13 @@ public class LeanTokenTemplateCompatibilityTests
             Assert.That(leanGas, Is.LessThan(fullGas),
                 $"Expected lean deploy gas ({leanGas}) to stay below full deploy gas ({fullGas}).");
         });
+
+        BigInteger savings = (BigInteger)fullGas - leanGas;
+        decimal savingsPercent = Math.Round((decimal)savings / fullGas * 100, 2);
+        NUnit.Framework.TestContext.Out.WriteLine($"FullTemplateDeployGasDatoshi={fullGas}");
+        NUnit.Framework.TestContext.Out.WriteLine($"LeanTokenTemplateDeployGasDatoshi={leanGas}");
+        NUnit.Framework.TestContext.Out.WriteLine($"DeploymentGasSavingsDatoshi={savings}");
+        NUnit.Framework.TestContext.Out.WriteLine($"DeploymentGasSavingsPercent={savingsPercent}");
     }
 
     private static ContractManifest LoadManifest(string fileName) =>
