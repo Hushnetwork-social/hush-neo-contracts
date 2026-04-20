@@ -44,6 +44,12 @@ public class ScenarioHooks
     {
         _context.Contract?.Dispose();
         _context.Contract = null;
+        foreach (var leanToken in _context.NamedLeanTokens.Values)
+        {
+            leanToken.Dispose();
+        }
+        _context.NamedLeanTokens.Clear();
+        _context.LeanContract = null;
         _context.Factory?.Dispose();
         _context.Factory = null;
         _context.Router?.Dispose();

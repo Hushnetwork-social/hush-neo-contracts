@@ -23,6 +23,9 @@ public class TestContext
     /// <summary>The deployed contract proxy. Null until a deploy step runs.</summary>
     public TokenTemplateContract? Contract { get; set; }
 
+    /// <summary>The active deployed LeanTokenTemplate proxy. Null until a lean deploy step runs.</summary>
+    public LeanTokenTemplateContract? LeanContract { get; set; }
+
     /// <summary>Return value from the last contract method call.</summary>
     public object? LastResult { get; set; }
 
@@ -46,6 +49,9 @@ public class TestContext
 
     /// <summary>Notifications captured from the last contract invocation.</summary>
     public List<Neo.VM.Types.Array> LastNotifications { get; } = new();
+
+    /// <summary>Named LeanTokenTemplate proxies for multi-token isolation scenarios.</summary>
+    public Dictionary<string, LeanTokenTemplateContract> NamedLeanTokens { get; } = new();
 
     // ── Factory-specific state ────────────────────────────────────────────────
 
