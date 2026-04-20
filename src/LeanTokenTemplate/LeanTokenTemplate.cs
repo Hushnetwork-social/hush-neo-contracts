@@ -138,6 +138,75 @@ namespace HushNetwork.Contracts
             return owner.IsValid && !owner.IsZero && Runtime.CheckWitness(owner);
         }
 
+        private static BigInteger GetFactoryOperationFeeOrZero()
+        {
+            UInt160 factory = StorageGetLaunchFactory();
+            if (!factory.IsValid || factory.IsZero)
+                return 0;
+
+            Contract factoryContract = ContractManagement.GetContract(factory);
+            if (factoryContract is null)
+                return 0;
+
+            object raw = Contract.Call(factory, "getUpdateFee", CallFlags.ReadOnly, Array.Empty<object>());
+            return raw is null ? 0 : (BigInteger)raw;
+        }
+
+        private static UInt160 GetFactoryRouterOrZero()
+        {
+            UInt160 factory = StorageGetLaunchFactory();
+            if (!factory.IsValid || factory.IsZero)
+                return UInt160.Zero;
+
+            Contract factoryContract = ContractManagement.GetContract(factory);
+            if (factoryContract is null)
+                return UInt160.Zero;
+
+            object raw = Contract.Call(factory, "getBondingCurveRouter", CallFlags.ReadOnly, Array.Empty<object>());
+            return raw is null ? UInt160.Zero : (UInt160)raw;
+        }
+
+        private static bool IsSourceBalanceControlledByCallingContract(UInt160 from) =>
+            Runtime.CallingScriptHash.IsValid && Runtime.CallingScriptHash == from;
+
+        private static bool IsLaunchFactoryControlledTransfer() =>
+            Runtime.CallingScriptHash.IsValid && Runtime.CallingScriptHash == StorageGetLaunchFactory();
+
+        private static void CollectTransferGasFees(UInt160 from)
+        {
+            BigInteger platformFee = StorageGetPlatformFeeRate();
+            if (platformFee > 0)
+            {
+                bool platformTransferred = GAS.Transfer(from, StorageGetLaunchFactory(), platformFee, null);
+                ExecutionEngine.Assert(platformTransferred, "Platform fee transfer failed");
+            }
+
+            BigInteger creatorFee = StorageGetCreatorFeeRate();
+            if (creatorFee > 0)
+            {
+                UInt160 creatorClaimant = StorageGetCreatorClaimant();
+                if (creatorClaimant != UInt160.Zero)
+                {
+                    bool creatorTransferred = GAS.Transfer(from, Runtime.ExecutingScriptHash, creatorFee, null);
+                    ExecutionEngine.Assert(creatorTransferred, "Creator fee transfer failed");
+                    StorageSetCreatorClaimable(StorageGetCreatorClaimable() + creatorFee);
+                }
+            }
+        }
+
+        private static BigInteger ApplyTransferBurn(UInt160 from, BigInteger amount)
+        {
+            BigInteger burnRate = StorageGetBurnRate();
+            if (burnRate <= 0) return amount;
+
+            BigInteger burnAmount = amount * burnRate / 10000;
+            if (burnAmount <= 0) return amount;
+
+            ExecutionEngine.Assert(amount > burnAmount, "Burn amount exceeds transfer amount");
+            Burn(from, burnAmount);
+            return amount - burnAmount;
+        }
+
         public override string Symbol { [Safe] get => StorageGetSymbol(); }
 
         public override byte Decimals { [Safe] get => StorageGetDecimals(); }
@@ -374,26 +443,26 @@ namespace HushNetwork.Contracts
         public static new bool Transfer(UInt160 from, UInt160 to, BigInteger amount, object data = null)
         {
             ExecutionEngine.Assert(!StorageGetPaused(), "Token transfers are paused");
+            bool sourceBalanceControlledByCallingContract = IsSourceBalanceControlledByCallingContract(from);
+            bool launchFactoryControlledTransfer = IsLaunchFactoryControlledTransfer();
+
+            if (from != UInt160.Zero)
+            {
+                if (!sourceBalanceControlledByCallingContract &&
+                    !launchFactoryControlledTransfer &&
+                    Runtime.CheckWitness(from))
+                {
+                    CollectTransferGasFees(from);
+                }
+
+                if (to != UInt160.Zero && !launchFactoryControlledTransfer)
+                    amount = ApplyTransferBurn(from, amount);
+            }
 
             if (to == UInt160.Zero)
             {
                 Burn(from, amount);
                 return true;
-            }
-
-            if (from != UInt160.Zero)
-            {
-                BigInteger burnRate = StorageGetBurnRate();
-                if (burnRate > 0)
-                {
-                    BigInteger burnAmount = amount * burnRate / 10000;
-                    if (burnAmount > 0)
-                    {
-                        ExecutionEngine.Assert(amount > burnAmount, "Burn amount exceeds transfer amount");
-                        Burn(from, burnAmount);
-                        amount -= burnAmount;
-                    }
-                }
             }
 
             return Nep17Token.Transfer(from, to, amount, data);
@@ -447,6 +516,18 @@ namespace HushNetwork.Contracts
             BigInteger claimable = StorageGetCreatorClaimable();
             ExecutionEngine.Assert(claimable >= amount, "Insufficient creator fee balance");
 
+            BigInteger operationFee = GetFactoryOperationFeeOrZero();
+            if (operationFee > 0)
+            {
+                bool operationFeeTransferred = GAS.Transfer(
+                    claimant,
+                    StorageGetLaunchFactory(),
+                    operationFee,
+                    null
+                );
+                ExecutionEngine.Assert(operationFeeTransferred, "Creator fee claim operation fee transfer failed");
+            }
+
             bool transferred = GAS.Transfer(Runtime.ExecutingScriptHash, claimant, amount, null);
             ExecutionEngine.Assert(transferred, "Creator fee claim transfer failed");
 
@@ -474,6 +555,16 @@ namespace HushNetwork.Contracts
         {
             if (Runtime.CallingScriptHash != GAS.Hash)
                 throw new InvalidOperationException("Only GAS accepted.");
+
+            if (amount <= 0)
+                return;
+
+            if (data is string marker && marker == "creator_fee_deposit")
+            {
+                UInt160 router = GetFactoryRouterOrZero();
+                if (router.IsValid && !router.IsZero && from == router)
+                    StorageSetCreatorClaimable(StorageGetCreatorClaimable() + amount);
+            }
         }
 
         public static void update(ByteString nefFile, string manifest, object data = null)
