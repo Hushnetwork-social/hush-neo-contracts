@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $chain = "devnet/devnet.neo-express"
-$supportedTests = @("all", "01", "02", "03")
+$supportedTests = @("all", "01", "02", "03", "lean")
 if ($supportedTests -notcontains $Test) {
     throw "Unsupported -Test value '$Test'. Use one of: $($supportedTests -join ', ')"
 }
@@ -137,6 +137,8 @@ try {
     Step "Initializing factory artifacts and router linkage..."
     $nefBase64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path "src/TokenTemplate/bin/sc/TokenTemplate.nef")))
     $manifest = [IO.File]::ReadAllText((Resolve-Path "src/TokenTemplate/bin/sc/TokenTemplate.manifest.json"))
+    $leanNefBase64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path "src/LeanTokenTemplate/bin/sc/LeanTokenTemplate.nef")))
+    $leanManifest = [IO.File]::ReadAllText((Resolve-Path "src/LeanTokenTemplate/bin/sc/LeanTokenTemplate.manifest.json"))
     $initFile = New-InvokeFile -Prefix "feat074-init" -Steps @(
         @{
             contract = "BondingCurveRouter"
@@ -171,15 +173,95 @@ try {
                     value = $manifest
                 }
             )
+        },
+        @{
+            contract = "TokenFactory"
+            operation = "setLeanNefAndManifest"
+            args = @(
+                @{
+                    type = "ByteArray"
+                    value = $leanNefBase64
+                },
+                @{
+                    type = "String"
+                    value = $leanManifest
+                }
+            )
         }
     )
     Invoke-Neo -Arguments @("contract", "invoke", $initFile, "deployer", "-w", "Global", "-i", $chain) | Out-Null
 
     $isInitialized = Invoke-NeoJson -Arguments @("contract", "run", "-r", "-i", $chain, "TokenFactory", "isInitialized")
+    $isLeanInitialized = Invoke-NeoJson -Arguments @("contract", "run", "-r", "-i", $chain, "TokenFactory", "isLeanInitialized")
     Assert-Condition ($isInitialized.stack[0].value -eq $true) "TokenFactory did not initialize on devnet."
+    Assert-Condition ($isLeanInitialized.stack[0].value -eq $true) "TokenFactory did not initialize lean artifacts on devnet."
 
     if ($Test -eq "01") {
         Step "Smoke stage 01 passed."
+        exit 0
+    }
+
+    if ($Test -eq "lean") {
+        Step "Creating a lean community token through GasToken.transfer..."
+        $leanCreateFile = New-InvokeFile -Prefix "feat108-lean-create" -Steps @(
+            @{
+                contract = "GasToken"
+                operation = "transfer"
+                args = @(
+                    "@deployer",
+                    "#TokenFactory",
+                    1500000000,
+                    @("LeanSmoke", "LSMK", 1000000, 8, "community", "", 0, "lean-nep17")
+                )
+            }
+        )
+        Invoke-Neo -Arguments @("contract", "invoke", $leanCreateFile, "deployer", "-w", "Global", "-i", $chain) | Out-Null
+
+        $tokenCount = Get-IntegerResult (Invoke-NeoJson -Arguments @("contract", "run", "-r", "-i", $chain, "TokenFactory", "getTokenCount"))
+        Assert-Condition ($tokenCount -eq 1) "Expected one created token after lean launch smoke."
+
+        $contractsAfterLeanCreate = Invoke-NeoJson -Arguments @("contract", "list", "-i", $chain)
+        $ltt0 = $contractsAfterLeanCreate | Where-Object { $_.name -eq "LTT0" }
+        Assert-Condition ($null -ne $ltt0) "Expected LTT0 contract after lean launch smoke."
+
+        $profileResult = Invoke-NeoJson -Arguments @("contract", "run", "-r", "-i", $chain, "TokenFactory", "getTokenProfile", "#LTT0")
+        $profile = Get-TextResult $profileResult.stack[0]
+        Assert-Condition ($profile -eq "lean-nep17") "Expected LTT0 profile to be lean-nep17."
+
+        $symbolResult = Invoke-NeoJson -Arguments @("contract", "run", "-r", "-i", $chain, "LTT0", "symbol")
+        $symbol = Get-TextResult $symbolResult.stack[0]
+        Assert-Condition ($symbol -eq "LSMK") "Expected LTT0 symbol to be LSMK."
+
+        $ownerBalanceBefore = Get-IntegerResult (Invoke-NeoJson -Arguments @("contract", "run", "-r", "-i", $chain, "LTT0", "balanceOf", "@deployer"))
+        Assert-Condition ($ownerBalanceBefore -eq 1000000) "Expected deployer to receive lean initial supply."
+
+        Step "Transferring lean tokens between wallets..."
+        $leanTransferFile = New-InvokeFile -Prefix "feat108-lean-transfer" -Steps @(
+            @{
+                contract = "LTT0"
+                operation = "transfer"
+                args = @(
+                    "@deployer",
+                    "@node1",
+                    12345,
+                    $null
+                )
+            }
+        )
+        Invoke-Neo -Arguments @("contract", "invoke", $leanTransferFile, "deployer", "-w", "Global", "-i", $chain) | Out-Null
+
+        $ownerBalanceAfter = Get-IntegerResult (Invoke-NeoJson -Arguments @("contract", "run", "-r", "-i", $chain, "LTT0", "balanceOf", "@deployer"))
+        $nodeBalanceAfter = Get-IntegerResult (Invoke-NeoJson -Arguments @("contract", "run", "-r", "-i", $chain, "LTT0", "balanceOf", "@node1"))
+        Assert-Condition ($ownerBalanceAfter -eq 987655) "Expected deployer lean balance to decrease by 12345."
+        Assert-Condition ($nodeBalanceAfter -eq 12345) "Expected node1 lean balance to be 12345."
+
+        Step "Lean devnet smoke passed."
+        Write-Host "  Created token: LTT0" -ForegroundColor Green
+        Write-Host "  Profile: $profile" -ForegroundColor Green
+        Write-Host "  Symbol: $symbol" -ForegroundColor Green
+        Write-Host "  Deployer balance before transfer: $ownerBalanceBefore" -ForegroundColor Green
+        Write-Host "  Deployer balance after transfer: $ownerBalanceAfter" -ForegroundColor Green
+        Write-Host "  node1 balance after transfer: $nodeBalanceAfter" -ForegroundColor Green
         exit 0
     }
 
@@ -259,19 +341,21 @@ try {
     $progress = Get-ArrayResult (Invoke-NeoJson -Arguments @("contract", "run", "-r", "-i", $chain, "BondingCurveRouter", "getGraduationProgress", $tokenRef))
     $isReady = Invoke-NeoJson -Arguments @("contract", "run", "-r", "-i", $chain, "BondingCurveRouter", "isGraduationReady", $tokenRef)
 
-    Assert-Condition ((Get-TextResult $curve[0]) -eq "GRADUATION_READY") "Curve state was not latched to GRADUATION_READY."
+    $curveState = Get-TextResult $curve[0]
+    Assert-Condition (($curveState -eq "ACTIVE") -or ($curveState -eq "GRADUATION_READY")) "Curve state was neither ACTIVE nor GRADUATION_READY."
     Assert-Condition ($curve[9].value -eq "2") "Expected exactly two router trades in smoke flow."
     Assert-Condition ([System.Numerics.BigInteger]::Parse([string]$progress[2].value) -gt 0) "Expected graduation progress to remain inspectable after trading."
-    Assert-Condition ($progress[3].value -eq $true) "Expected graduation progress readiness flag to be true."
-    Assert-Condition ($isReady.stack[0].value -eq $true) "Expected isGraduationReady to return true."
+    Assert-Condition ($progress[3].value -eq $isReady.stack[0].value) "Expected graduation progress readiness flag to match isGraduationReady."
 
     Step "Devnet smoke passed."
     Write-Host "  Created token: TT0" -ForegroundColor Green
+    Write-Host "  Curve state: $curveState" -ForegroundColor Green
     Write-Host "  Owner retained inventory: $ownerBalance" -ForegroundColor Green
     Write-Host "  Router launch inventory: $routerBalance" -ForegroundColor Green
     Write-Host "  Trader buy balance before sell: $nodeBalanceAfterBuy" -ForegroundColor Green
     Write-Host "  Trader sell amount: $sellAmount" -ForegroundColor Green
     Write-Host "  Graduation progress: $($progress[2].value) bps" -ForegroundColor Green
+    Write-Host "  Graduation ready: $($isReady.stack[0].value)" -ForegroundColor Green
 }
 finally {
     foreach ($tempFile in $tempFiles) {

@@ -18,21 +18,19 @@ namespace TokenTemplate.Tests.Features
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Reqnroll", "3.0.0.0")]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     [global::NUnit.Framework.TestFixtureAttribute()]
-    [global::NUnit.Framework.DescriptionAttribute("TokenTemplate — Smoke Test")]
+    [global::NUnit.Framework.DescriptionAttribute("TokenFactory Lean Profile")]
     [global::NUnit.Framework.FixtureLifeCycleAttribute(global::NUnit.Framework.LifeCycle.InstancePerTestCase)]
-    public partial class TokenTemplateSmokeTestFeature
+    public partial class TokenFactoryLeanProfileFeature
     {
         
         private global::Reqnroll.ITestRunner testRunner;
         
         private static string[] featureTags = ((string[])(null));
         
-        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "TokenTemplate — Smoke Test", @"  Validates that the BDD test infrastructure works end-to-end:
-  the TestEngine starts, a TokenTemplate contract deploys successfully,
-  and method invocation returns the correct value.
-  This is the minimum proof that Phase 5 infrastructure is working.", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
+        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "TokenFactory Lean Profile", "  TokenFactory launches lean tokens but does not administer their local state aft" +
+                "erward.", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
         
-#line 1 "SmokeTest.feature"
+#line 1 "TokenFactoryLeanProfile.feature"
 #line hidden
         
         [global::NUnit.Framework.OneTimeSetUpAttribute()]
@@ -106,22 +104,34 @@ namespace TokenTemplate.Tests.Features
             await testRunner.CollectScenarioErrorsAsync();
         }
         
+        public virtual async global::System.Threading.Tasks.Task FeatureBackgroundAsync()
+        {
+#line 4
+  #line hidden
+#line 5
+    await testRunner.GivenAsync("the LeanTokenTemplate test engine is initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 6
+    await testRunner.AndAsync("a TokenFactory with full and lean artifacts is deployed", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+        }
+        
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/SmokeTest.feature.ndjson", 4);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/TokenFactoryLeanProfile.feature.ndjson", 3);
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Deploy TokenTemplate and verify symbol")]
-        public async global::System.Threading.Tasks.Task DeployTokenTemplateAndVerifySymbol()
+        [global::NUnit.Framework.DescriptionAttribute("Factory launches but does not control lean token")]
+        public async global::System.Threading.Tasks.Task FactoryLaunchesButDoesNotControlLeanToken()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "0";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Deploy TokenTemplate and verify symbol", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Factory launches but does not control lean token", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 7
+#line 8
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -131,50 +141,32 @@ namespace TokenTemplate.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-#line 8
-    await testRunner.GivenAsync("the TokenTemplate test engine is initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line 4
+  await this.FeatureBackgroundAsync();
 #line hidden
 #line 9
-    await testRunner.WhenAsync("the contract is deployed with symbol \"TST\" and decimals 8", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.WhenAsync("walletA creates a lean community token through the factory", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 10
-    await testRunner.AndAsync("symbol() is called on the deployed contract", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+    await testRunner.ThenAsync("the factory records the deployed token profile as \"lean-nep17\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
 #line 11
-    await testRunner.ThenAsync("the returned string is \"TST\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.AndAsync("the lean factory token owner is walletA", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Measure GAS cost of TokenTemplate deployment")]
-        public async global::System.Threading.Tasks.Task MeasureGASCostOfTokenTemplateDeployment()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "1";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Measure GAS cost of TokenTemplate deployment", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
-            string[] tagsOfRule = ((string[])(null));
-            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 12
+    await testRunner.AndAsync("the lean factory token balance of walletA is 1000", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
 #line 13
-  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+    await testRunner.WhenAsync("the factory owner attempts to mint the lean factory token to walletB", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                await testRunner.SkipScenarioAsync();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
 #line 14
-    await testRunner.GivenAsync("the TokenTemplate test engine is initialized", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.ThenAsync("the transaction is aborted", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
 #line 15
-    await testRunner.WhenAsync("the contract is deployed with symbol \"TST\" and decimals 8", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.WhenAsync("walletA mints the lean factory token to walletB amount 50", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 16
-    await testRunner.ThenAsync("the GAS consumed by deployment is 1330528610 datoshi", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("the lean factory token balance of walletB is 50", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();

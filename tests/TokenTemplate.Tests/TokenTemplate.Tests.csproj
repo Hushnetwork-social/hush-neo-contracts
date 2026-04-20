@@ -29,6 +29,14 @@
           CopyToOutputDirectory="Always"
           Link="artifacts\TokenTemplate.manifest.json" />
 
+    <!-- LeanTokenTemplate contract artifacts (built by src/LeanTokenTemplate) -->
+    <None Include="..\..\src\LeanTokenTemplate\bin\sc\LeanTokenTemplate.nef"
+          CopyToOutputDirectory="Always"
+          Link="artifacts\LeanTokenTemplate.nef" />
+    <None Include="..\..\src\LeanTokenTemplate\bin\sc\LeanTokenTemplate.manifest.json"
+          CopyToOutputDirectory="Always"
+          Link="artifacts\LeanTokenTemplate.manifest.json" />
+
     <!-- TokenFactory contract artifacts (built by src/TokenFactory) -->
     <None Include="..\..\src\TokenFactory\bin\sc\TokenFactory.nef"
           CopyToOutputDirectory="Always"
