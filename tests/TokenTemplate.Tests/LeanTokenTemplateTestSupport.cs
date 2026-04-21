@@ -11,10 +11,34 @@ namespace TokenTemplate.Tests;
 
 internal static class LeanTokenTemplateTestSupport
 {
+    public static LeanTokenEngineContract DeployEngine(
+        TestEngine engine,
+        UInt160 owner,
+        string manifestName = "LeanTokenEngine")
+    {
+        string artifactsPath = Path.Combine(AppContext.BaseDirectory, "artifacts");
+        var nefPath = Path.Combine(artifactsPath, "LeanTokenEngine.nef");
+        var manifestPath = Path.Combine(artifactsPath, "LeanTokenEngine.manifest.json");
+
+        var nef = NefFile.Parse(File.ReadAllBytes(nefPath));
+        string manifestJson = File.ReadAllText(manifestPath);
+        if (manifestName != "LeanTokenEngine")
+        {
+            manifestJson = manifestJson.Replace(
+                "\"name\":\"LeanTokenEngine\"",
+                "\"name\":\"" + manifestName + "\"",
+                StringComparison.Ordinal);
+        }
+
+        var manifest = ContractManifest.Parse(manifestJson);
+        return engine.Deploy<LeanTokenEngineContract>(nef, manifest, owner);
+    }
+
     public static LeanTokenTemplateContract Deploy(TestEngine engine, LeanDeployParams parameters)
     {
         string artifactsPath = Path.Combine(AppContext.BaseDirectory, "artifacts");
         string manifestName = parameters.ManifestName;
+        UInt160 engineHash = ResolveEngineHash(engine, parameters);
 
         var nefPath = Path.Combine(artifactsPath, "LeanTokenTemplate.nef");
         var manifestPath = Path.Combine(artifactsPath, "LeanTokenTemplate.manifest.json");
@@ -44,10 +68,32 @@ internal static class LeanTokenTemplateTestSupport
             parameters.Pausable ? BigInteger.One : BigInteger.Zero,
             parameters.LaunchFactory,
             parameters.PlatformFeeRate,
-            parameters.CreatorFeeRate
+            parameters.CreatorFeeRate,
+            engineHash
         };
 
         return engine.Deploy<LeanTokenTemplateContract>(nef, manifest, deployArgs);
+    }
+
+    private static UInt160 ResolveEngineHash(TestEngine engine, LeanDeployParams parameters)
+    {
+        var configuredEngineHash = parameters.EngineHash;
+        if (configuredEngineHash is not null && configuredEngineHash != UInt160.Zero)
+            return configuredEngineHash;
+
+        UInt160 engineOwner = parameters.EngineOwner is not null &&
+                              parameters.EngineOwner != UInt160.Zero
+            ? parameters.EngineOwner
+            : parameters.LaunchFactory != UInt160.Zero
+                ? parameters.LaunchFactory
+                : parameters.Owner;
+
+        string engineManifestName = parameters.EngineManifestName;
+        if (engineManifestName == "LeanTokenEngine" && parameters.ManifestName != "LeanTokenTemplate")
+            engineManifestName = "LeanTokenEngine" + parameters.ManifestName;
+
+        var leanEngine = DeployEngine(engine, engineOwner, engineManifestName);
+        return leanEngine.Hash;
     }
 }
 
@@ -67,4 +113,7 @@ internal sealed record LeanDeployParams
     public BigInteger PlatformFeeRate { get; init; } = BigInteger.Zero;
     public BigInteger CreatorFeeRate { get; init; } = BigInteger.Zero;
     public string ManifestName { get; init; } = "LeanTokenTemplate";
+    public UInt160? EngineHash { get; init; }
+    public UInt160? EngineOwner { get; init; }
+    public string EngineManifestName { get; init; } = "LeanTokenEngine";
 }

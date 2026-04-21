@@ -118,6 +118,12 @@ public class LeanTokenTemplateCompatibilityTests
         }
 
         engine.SetTransactionSigners(owner);
+        using var leanEngine = LeanTokenTemplateTestSupport.DeployEngine(
+            engine,
+            factory.Account,
+            "LeanGasEngine");
+
+        engine.SetTransactionSigners(owner);
         long leanGas;
         using (var leanWatcher = engine.CreateGasWatcher())
         using (LeanTokenTemplateTestSupport.Deploy(engine, new LeanDeployParams
@@ -127,6 +133,7 @@ public class LeanTokenTemplateCompatibilityTests
             Owner = owner.Account,
             LaunchFactory = factory.Account,
             InitialSupply = 1_000,
+            EngineHash = leanEngine.Hash,
             ManifestName = "LeanGasBaseline"
         }))
         {

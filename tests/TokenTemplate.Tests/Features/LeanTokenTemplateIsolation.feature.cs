@@ -27,7 +27,8 @@ namespace TokenTemplate.Tests.Features
         
         private static string[] featureTags = ((string[])(null));
         
-        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "LeanTokenTemplate Isolation", "  Separate lean token deployments keep owner-controlled storage isolated.", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
+        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "LeanTokenTemplate Isolation", "  Separate wallet-native lean facades keep token-scoped shared-engine storage iso" +
+                "lated.", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
         
 #line 1 "LeanTokenTemplateIsolation.feature"
 #line hidden

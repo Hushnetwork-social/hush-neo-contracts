@@ -1,5 +1,5 @@
 Feature: LeanTokenTemplate Isolation
-  Separate lean token deployments keep owner-controlled storage isolated.
+  Separate wallet-native lean facades keep token-scoped shared-engine storage isolated.
 
   Background:
     Given the LeanTokenTemplate test engine is initialized

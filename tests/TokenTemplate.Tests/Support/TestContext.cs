@@ -26,6 +26,9 @@ public class TestContext
     /// <summary>The active deployed LeanTokenTemplate proxy. Null until a lean deploy step runs.</summary>
     public LeanTokenTemplateContract? LeanContract { get; set; }
 
+    /// <summary>The shared LeanTokenEngine proxy backing lean facade tokens in a scenario.</summary>
+    public LeanTokenEngineContract? LeanEngine { get; set; }
+
     /// <summary>Return value from the last contract method call.</summary>
     public object? LastResult { get; set; }
 

@@ -1,5 +1,6 @@
 #nullable enable
 using Neo;
+using Neo.Network.P2P.Payloads;
 using Neo.SmartContract.Testing;
 using NUnit.Framework;
 using System.Numerics;
@@ -268,7 +269,7 @@ public class LeanTokenTemplateLifecycleTests
     }
 
     [Test]
-    public void FactoryCompatibilityMethods_AreExposedButRejectAuthority()
+    public void FactoryCompatibilityMethods_AreExposedAndAuthorizeConfiguredFactory()
     {
         var engine = new TestEngine(true);
         var owner = TestEngine.GetNewSigner();
@@ -286,15 +287,18 @@ public class LeanTokenTemplateLifecycleTests
             ManifestName = "LeanFactoryReject"
         });
 
-        engine.SetTransactionSigners(factory);
+        engine.SetTransactionSigners(new Signer { Account = factory.Account, Scopes = WitnessScope.Global });
+
+        token.MintByFactory(recipient.Account, 1);
+        token.TransferByFactory(owner.Account, recipient.Account, 1, null);
+        token.AuthorizeFactory(recipient.Account);
 
         Assert.Multiple(() =>
         {
-            Assert.That(() => token.MintByFactory(recipient.Account, 1), Throws.Exception);
-            Assert.That(() => token.TransferByFactory(owner.Account, recipient.Account, 1, null), Throws.Exception);
-            Assert.That(() => token.AuthorizeFactory(recipient.Account), Throws.Exception);
-            Assert.That(token.TotalSupply, Is.EqualTo((BigInteger)1_000));
-            Assert.That(token.getAuthorizedFactory(), Is.EqualTo(factory.Account));
+            Assert.That(token.TotalSupply, Is.EqualTo((BigInteger)1_001));
+            Assert.That(token.BalanceOf(owner.Account), Is.EqualTo((BigInteger)999));
+            Assert.That(token.BalanceOf(recipient.Account), Is.EqualTo((BigInteger)2));
+            Assert.That(token.getAuthorizedFactory(), Is.EqualTo(recipient.Account));
         });
     }
 }

@@ -34,6 +34,14 @@ public class LeanTokenTemplateSteps
     {
         Assert.That(_context.Engine, Is.Not.Null,
             "TestEngine must be initialized by ScenarioHooks.BeforeScenario");
+
+        if (_context.LeanEngine is null)
+        {
+            _context.Engine.SetTransactionSigners(_context.OwnerSigner);
+            _context.LeanEngine = LeanTokenTemplateTestSupport.DeployEngine(
+                _context.Engine,
+                _context.OwnerSigner.Account);
+        }
     }
 
     [Given(@"a lean token is deployed with owner (\w+), symbol ""(.*)"", decimals (\d+), and initialSupply (\d+)")]
@@ -449,6 +457,7 @@ public class LeanTokenTemplateSteps
             MetadataUri = metadataUri,
             Upgradeable = upgradeable,
             Pausable = pausable,
+            EngineHash = _context.LeanEngine?.Hash,
             ManifestName = $"Lean{Sanitize(alias)}{Sanitize(symbol)}"
         });
 

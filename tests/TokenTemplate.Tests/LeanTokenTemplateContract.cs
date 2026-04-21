@@ -19,6 +19,12 @@ public abstract class LeanTokenTemplateContract : SmartContract
 
     public abstract BigInteger? TotalSupply { [DisplayName("totalSupply")] get; }
 
+    [DisplayName("getLeanEngine")]
+    public abstract UInt160? getLeanEngine();
+
+    [DisplayName("getTokenId")]
+    public abstract UInt160? getTokenId();
+
     [DisplayName("balanceOf")]
     public abstract BigInteger? BalanceOf(UInt160? account);
 
