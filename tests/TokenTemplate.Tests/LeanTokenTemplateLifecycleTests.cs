@@ -63,7 +63,6 @@ public class LeanTokenTemplateLifecycleTests
         token.SetMetadataUri("ipfs://updated");
         token.SetBurnRate(250);
         token.SetCreatorFee(300_000);
-        token.SetPlatformFeeRate(700_000);
         token.SetMaxSupply(2_500);
         token.mint(recipient.Account, 500);
         token.setPausable(true);
@@ -75,12 +74,47 @@ public class LeanTokenTemplateLifecycleTests
             Assert.That(token.getMetadataUri(), Is.EqualTo("ipfs://updated"));
             Assert.That(token.getBurnRate(), Is.EqualTo((BigInteger)250));
             Assert.That(token.getCreatorFeeRate(), Is.EqualTo((BigInteger)300_000));
-            Assert.That(token.getPlatformFeeRate(), Is.EqualTo((BigInteger)700_000));
+            Assert.That(token.getPlatformFeeRate(), Is.EqualTo(BigInteger.Zero));
             Assert.That(token.getMaxSupply(), Is.EqualTo((BigInteger)2_500));
             Assert.That(token.TotalSupply, Is.EqualTo((BigInteger)1_500));
             Assert.That(token.BalanceOf(recipient.Account), Is.EqualTo((BigInteger)500));
             Assert.That(token.isPausable(), Is.True);
             Assert.That(token.isPaused(), Is.False);
+        });
+    }
+
+    [Test]
+    public void TokenOwner_CannotSetPlatformFeeRateDirectly()
+    {
+        var engine = new TestEngine(true);
+        var owner = TestEngine.GetNewSigner();
+        var factory = TestEngine.GetNewSigner();
+        var outsider = TestEngine.GetNewSigner();
+        engine.SetTransactionSigners(owner);
+
+        using var token = LeanTokenTemplateTestSupport.Deploy(engine, new LeanDeployParams
+        {
+            Name = "Lean Platform Owner Block",
+            Symbol = "LPB",
+            Owner = owner.Account,
+            LaunchFactory = factory.Account,
+            InitialSupply = 1_000,
+            PlatformFeeRate = 250_000,
+            ManifestName = "LeanPlatformOwnerBlock"
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => token.SetPlatformFeeRate(700_000), Throws.Exception);
+            Assert.That(token.getPlatformFeeRate(), Is.EqualTo((BigInteger)250_000));
+        });
+
+        engine.SetTransactionSigners(outsider);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => token.SetPlatformFeeRate(700_000), Throws.Exception);
+            Assert.That(token.getPlatformFeeRate(), Is.EqualTo((BigInteger)250_000));
         });
     }
 

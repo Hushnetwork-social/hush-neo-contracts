@@ -1310,7 +1310,6 @@ namespace HushNetwork.Contracts
                 UInt160 tokenHash = StorageGetGlobalTokenAtIndex(idx);
                 if (tokenHash is not null)
                 {
-                    if (IsLeanProfileToken(tokenHash)) continue;
                     Contract.Call(tokenHash, "setPlatformFeeRate", CallFlags.All, new object[] { newRate });
                     count++;
                 }
