@@ -166,8 +166,10 @@ namespace HushNetwork.Contracts
         {
             UInt160 launchFactory = (UInt160)info[Info_LaunchFactory];
             UInt160 platformOwner = StorageGetOwner();
+            UInt160 facade = (UInt160)info[Info_Facade];
 
             return
+                Runtime.CallingScriptHash == facade ||
                 (platformOwner.IsValid && !platformOwner.IsZero && Runtime.CheckWitness(platformOwner)) ||
                 (launchFactory.IsValid && !launchFactory.IsZero &&
                     (Runtime.CallingScriptHash == launchFactory || Runtime.EntryScriptHash == launchFactory));

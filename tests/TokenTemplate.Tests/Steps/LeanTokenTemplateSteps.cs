@@ -102,6 +102,11 @@ public class LeanTokenTemplateSteps
 
         _context.Factory.SetNefAndManifest(fullNef, fullManifest);
         _context.Factory.SetLeanNefAndManifest(leanNef, leanManifest);
+        _context.LeanEngine = LeanTokenTemplateTestSupport.DeployEngine(
+            _context.Engine,
+            _context.Factory.Hash,
+            "LeanFactoryBddEngine");
+        _context.Factory.SetLeanEngine(_context.LeanEngine.Hash);
     }
 
     [When("lean symbol\\(\\) is called")]

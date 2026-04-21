@@ -169,7 +169,7 @@ namespace TokenTemplate.Tests.Features
     await testRunner.AndAsync("a freshly deployed TokenFactory", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 13
-    await testRunner.ThenAsync("the factory deployment GAS is 1922697170 datoshi", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("the factory deployment GAS is 1984143790 datoshi", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();

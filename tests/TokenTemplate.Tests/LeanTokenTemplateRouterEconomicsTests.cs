@@ -27,7 +27,7 @@ public class LeanTokenTemplateRouterEconomicsTests
 
         using var factory = DeployFactory(engine, owner.Account);
         using var router = DeployRouter(engine, owner.Account, factory.Hash);
-        BootstrapFullAndLeanTemplates(factory);
+        using var leanEngine = BootstrapFullAndLeanTemplates(engine, factory);
         factory.SetBondingCurveRouter(router.Hash);
         factory.SetAllTokensPlatformFee(800_000, 0, 10);
 
@@ -72,7 +72,7 @@ public class LeanTokenTemplateRouterEconomicsTests
 
         using var factory = DeployFactory(engine, owner.Account);
         using var router = DeployRouter(engine, owner.Account, factory.Hash);
-        BootstrapFullAndLeanTemplates(factory);
+        using var leanEngine = BootstrapFullAndLeanTemplates(engine, factory);
         factory.SetBondingCurveRouter(router.Hash);
 
         TransferGasToFactory(engine, factory, creator, 1_500_000_000, new object[]
@@ -134,7 +134,7 @@ public class LeanTokenTemplateRouterEconomicsTests
         return engine.Deploy<BondingCurveRouterContract>(nef, manifest, new object[] { ownerAddress, factoryHash });
     }
 
-    private static void BootstrapFullAndLeanTemplates(TokenFactoryContract factory)
+    private static LeanTokenEngineContract BootstrapFullAndLeanTemplates(TestEngine engine, TokenFactoryContract factory)
     {
         var fullNef = File.ReadAllBytes(Path.Combine(ArtifactsPath, "TokenTemplate.nef"));
         var fullManifest = File.ReadAllText(Path.Combine(ArtifactsPath, "TokenTemplate.manifest.json"));
@@ -143,6 +143,9 @@ public class LeanTokenTemplateRouterEconomicsTests
 
         factory.SetNefAndManifest(fullNef, fullManifest);
         factory.SetLeanNefAndManifest(leanNef, leanManifest);
+        var leanEngine = LeanTokenTemplateTestSupport.DeployEngine(engine, factory.Hash, "LeanRouterEngine");
+        factory.SetLeanEngine(leanEngine.Hash);
+        return leanEngine;
     }
 
     private static void TransferGasToFactory(TestEngine engine, TokenFactoryContract factory, Signer signer, BigInteger amountDatoshi, object[] tokenData)

@@ -40,6 +40,7 @@ namespace HushNetwork.Contracts
         private const byte Prefix_LeanManifest        = 0xea; // FEAT-108: string stored LeanTokenTemplate manifest JSON
         private const byte Prefix_LeanTemplateVersion = 0xeb; // FEAT-108: BigInteger version of lean template artifacts
         private const byte Prefix_LeanTemplateHash    = 0xec; // FEAT-108: UInt160 identity hash of lean template artifacts
+        private const byte Prefix_LeanEngineHash      = 0xed; // FEAT-111: shared LeanTokenEngine contract hash
         private const byte Prefix_TokenProfile        = 0x31; // FEAT-108: string profile by token hash
 
         private const string ProfileFullNep17 = "full-nep17";
@@ -223,6 +224,15 @@ namespace HushNetwork.Contracts
 
         private static void StorageSetLeanTemplateHash(UInt160 value) =>
             Storage.Put(new[] { Prefix_LeanTemplateHash }, value);
+
+        private static UInt160 StorageGetLeanEngineHash()
+        {
+            ByteString raw = Storage.Get(new[] { Prefix_LeanEngineHash });
+            return raw is null ? UInt160.Zero : (UInt160)raw;
+        }
+
+        private static void StorageSetLeanEngineHash(UInt160 value) =>
+            Storage.Put(new[] { Prefix_LeanEngineHash }, value);
 
         private static UInt160 StorageGetBondingCurveRouter()
         {
@@ -612,10 +622,37 @@ namespace HushNetwork.Contracts
             ByteString nef = isLeanProfile ? StorageGetLeanNefBytes() : StorageGetNefBytes();
             ExecutionEngine.Assert(nef is not null, isLeanProfile ? "Lean template not initialized" : "Factory not initialized");
 
-            // Build 13-element deploy params for TokenTemplate._deploy()
-            // Bool params (mintable, upgradeable, pausable) MUST be BigInteger 0/1, NOT C# bool
-            object[] tokenParams = new object[]
+            UInt160 leanEngineHash = isLeanProfile ? StorageGetLeanEngineHash() : UInt160.Zero;
+            if (isLeanProfile)
+                ExecutionEngine.Assert(leanEngineHash.IsValid && !leanEngineHash.IsZero, "Lean engine not initialized");
+
+            // Build profile-specific deploy params. Full uses the historical 13 args;
+            // LEAN adds the shared engine hash for facade registration.
+            object[] tokenParams;
+            if (isLeanProfile)
             {
+                tokenParams = new object[]
+                {
+                    name,
+                    symbol,
+                    supply,
+                    decimals,
+                    from,
+                    (BigInteger)1,
+                    (BigInteger)0,
+                    (BigInteger)0,
+                    imageUrl,
+                    (BigInteger)0,
+                    Runtime.ExecutingScriptHash,
+                    StorageGetPlatformFeeRate(),
+                    creatorFeeRate,
+                    leanEngineHash,
+                };
+            }
+            else
+            {
+                tokenParams = new object[]
+                {
                 name,                                   // [0] name
                 symbol,                                 // [1] symbol
                 supply,                                 // [2] initialSupply
@@ -630,6 +667,7 @@ namespace HushNetwork.Contracts
                 StorageGetPlatformFeeRate(),            // [11] platformFeeRate — current factory-level platform fee
                 creatorFeeRate,                         // [12] creatorFeeRate — per-transfer fee to token creator
             };
+            }
 
             // Deploy the TokenTemplate instance.
             // Neo contract hash = Hash160(callerHash || nefChecksum || manifestName).
@@ -660,6 +698,7 @@ namespace HushNetwork.Contracts
                 (BigInteger)0,              // [7] burnRate (basis points) — 0 at creation
                 (BigInteger)0,              // [8] maxSupply — 0 = uncapped (community mode)
                 (BigInteger)0,              // [9] locked — 0 = unlocked at creation
+                leanEngineHash,
             };
             StorageSetTokenInfo(contractHash, tokenInfo);
             StorageSetTokenProfile(contractHash, creationProfile);
@@ -789,7 +828,10 @@ namespace HushNetwork.Contracts
 
         [Safe]
         public static bool IsLeanInitialized() =>
-            StorageGetLeanNefBytes() is not null;
+            StorageGetLeanNefBytes() is not null &&
+            StorageGetLeanManifest().Length > 0 &&
+            StorageGetLeanEngineHash().IsValid &&
+            !StorageGetLeanEngineHash().IsZero;
 
         [Safe]
         public static object[] GetLeanTemplateConfig()
@@ -800,6 +842,7 @@ namespace HushNetwork.Contracts
                 StorageGetLeanTemplateVersion(),
                 StorageGetLeanNefBytes() is not null,
                 StorageGetLeanManifest().Length > 0,
+                StorageGetLeanEngineHash(),
             };
         }
 
@@ -828,6 +871,17 @@ namespace HushNetwork.Contracts
             StorageSetLeanManifest(manifest);
             StorageSetLeanTemplateHash(ComputeTemplateHash(nef, manifest));
         }
+
+        public static void SetLeanEngine(UInt160 engineHash)
+        {
+            AssertOwnerAuthorized();
+            ExecutionEngine.Assert(engineHash.IsValid && !engineHash.IsZero, "Invalid lean engine hash");
+            StorageSetLeanEngineHash(engineHash);
+        }
+
+        [Safe]
+        public static UInt160 GetLeanEngine() =>
+            StorageGetLeanEngineHash();
 
         public static void SetFee(BigInteger standardFeeDataoshi)
         {
@@ -1342,6 +1396,7 @@ namespace HushNetwork.Contracts
             StorageSetTemplateHash(UInt160.Zero);
             StorageSetLeanTemplateVersion(1);   // FEAT-108 default: initial configured lean template version
             StorageSetLeanTemplateHash(UInt160.Zero);
+            StorageSetLeanEngineHash(UInt160.Zero);
             OnSetOwner(null, initialOwner);
         }
 

@@ -41,7 +41,11 @@ public class TokenFactoryLeanProfileTests
         });
 
         factory.SetLeanNefAndManifest(leanNef, leanManifest);
+        Assert.That(factory.IsLeanInitialized(), Is.False);
         var leanBefore = factory.GetLeanTemplateConfig();
+        using var leanEngine = LeanTokenTemplateTestSupport.DeployEngine(engine, factory.Hash, "LeanFactoryConfigEngine");
+        factory.SetLeanEngine(leanEngine.Hash);
+        var leanInitialized = factory.GetLeanTemplateConfig();
         factory.UpgradeLeanTemplate(leanNef, leanManifest.Replace("\"name\":\"LeanTokenTemplate\"", "\"name\":\"LeanTokenTemplateV2\""));
         var leanAfter = factory.GetLeanTemplateConfig();
 
@@ -50,10 +54,14 @@ public class TokenFactoryLeanProfileTests
             Assert.That(factory.IsLeanInitialized(), Is.True);
             Assert.That(ParseBoolean(leanBefore![2]), Is.True);
             Assert.That(ParseBoolean(leanBefore[3]), Is.True);
+            Assert.That(ParseHash(leanBefore[4]), Is.EqualTo(UInt160.Zero));
+            Assert.That(ParseHash(leanInitialized![4]), Is.EqualTo(leanEngine.Hash));
+            Assert.That(factory.GetLeanEngine(), Is.EqualTo(leanEngine.Hash));
             Assert.That(ParseHash(leanBefore[0]), Is.Not.EqualTo(UInt160.Zero));
             Assert.That(ParseBigInteger(leanBefore[1]), Is.EqualTo(BigInteger.One));
             Assert.That(ParseBigInteger(leanAfter![1]), Is.EqualTo((BigInteger)2));
             Assert.That(ParseHash(leanAfter[0]), Is.Not.EqualTo(ParseHash(leanBefore[0])));
+            Assert.That(ParseHash(leanAfter[4]), Is.EqualTo(leanEngine.Hash));
             Assert.That(ParseBigInteger(factory.GetConfig()![5]), Is.EqualTo(BigInteger.One));
         });
     }
@@ -66,7 +74,7 @@ public class TokenFactoryLeanProfileTests
         var creator = TestEngine.GetNewSigner();
         engine.SetTransactionSigners(owner);
         using var factory = DeployFactory(engine, owner.Account);
-        BootstrapFullAndLeanTemplates(factory);
+        using var leanEngine = BootstrapFullAndLeanTemplates(engine, factory);
 
         SimulateGasPayment(engine, factory, creator, 1_500_000_000, new object[]
         {
@@ -95,6 +103,10 @@ public class TokenFactoryLeanProfileTests
             Assert.That(token.getName(), Is.EqualTo("Lean Factory Token"));
             Assert.That(token.getOwner(), Is.EqualTo(creator.Account));
             Assert.That(token.getAuthorizedFactory(), Is.EqualTo(factory.Hash));
+            Assert.That(token.getLeanEngine(), Is.EqualTo(leanEngine.Hash));
+            Assert.That(token.getTokenId(), Is.EqualTo(tokenHash));
+            Assert.That(ParseHash(tokenInfo[10]), Is.EqualTo(leanEngine.Hash));
+            Assert.That(leanEngine.isTokenRegistered(tokenHash), Is.True);
             Assert.That(token.BalanceOf(creator.Account), Is.EqualTo((BigInteger)1_000));
         });
     }
@@ -108,7 +120,7 @@ public class TokenFactoryLeanProfileTests
         var recipient = TestEngine.GetNewSigner();
         engine.SetTransactionSigners(owner);
         using var factory = DeployFactory(engine, owner.Account);
-        BootstrapFullAndLeanTemplates(factory);
+        using var leanEngine = BootstrapFullAndLeanTemplates(engine, factory);
 
         SimulateGasPayment(engine, factory, creator, 1_500_000_000, new object[]
         {
@@ -153,7 +165,7 @@ public class TokenFactoryLeanProfileTests
         engine.SetTransactionSigners(owner);
         using var factory = DeployFactory(engine, owner.Account);
         using var router = DeployRouter(engine, owner.Account, factory.Hash);
-        BootstrapFullAndLeanTemplates(factory);
+        using var leanEngine = BootstrapFullAndLeanTemplates(engine, factory);
         factory.SetBondingCurveRouter(router.Hash);
 
         SimulateGasPayment(engine, factory, creator, 1_500_000_000, new object[]
@@ -193,7 +205,7 @@ public class TokenFactoryLeanProfileTests
         var creator = TestEngine.GetNewSigner();
         engine.SetTransactionSigners(owner);
         using var factory = DeployFactory(engine, owner.Account);
-        BootstrapFullAndLeanTemplates(factory);
+        using var leanEngine = BootstrapFullAndLeanTemplates(engine, factory);
 
         SimulateGasPayment(engine, factory, creator, 1_500_000_000, new object[]
         {
@@ -244,7 +256,7 @@ public class TokenFactoryLeanProfileTests
         var creator = TestEngine.GetNewSigner();
         engine.SetTransactionSigners(owner);
         using var factory = DeployFactory(engine, owner.Account);
-        BootstrapFullAndLeanTemplates(factory);
+        using var leanEngine = BootstrapFullAndLeanTemplates(engine, factory);
 
         SimulateGasPayment(engine, factory, creator, 1_500_000_000, new object[]
         {
@@ -287,7 +299,7 @@ public class TokenFactoryLeanProfileTests
         var creatorB = TestEngine.GetNewSigner();
         engine.SetTransactionSigners(owner);
         using var factory = DeployFactory(engine, owner.Account);
-        BootstrapFullAndLeanTemplates(factory);
+        using var leanEngine = BootstrapFullAndLeanTemplates(engine, factory);
 
         SimulateGasPayment(engine, factory, creatorA, 1_500_000_000, new object[]
         {
@@ -361,7 +373,7 @@ public class TokenFactoryLeanProfileTests
         return engine.Deploy<BondingCurveRouterContract>(nef, manifest, new object[] { ownerAddress, factoryHash });
     }
 
-    private static void BootstrapFullAndLeanTemplates(TokenFactoryContract factory)
+    private static LeanTokenEngineContract BootstrapFullAndLeanTemplates(TestEngine engine, TokenFactoryContract factory)
     {
         var fullNef = File.ReadAllBytes(Path.Combine(ArtifactsPath, "TokenTemplate.nef"));
         var fullManifest = File.ReadAllText(Path.Combine(ArtifactsPath, "TokenTemplate.manifest.json"));
@@ -370,6 +382,9 @@ public class TokenFactoryLeanProfileTests
 
         factory.SetNefAndManifest(fullNef, fullManifest);
         factory.SetLeanNefAndManifest(leanNef, leanManifest);
+        var leanEngine = LeanTokenTemplateTestSupport.DeployEngine(engine, factory.Hash, "LeanFactoryEngine");
+        factory.SetLeanEngine(leanEngine.Hash);
+        return leanEngine;
     }
 
     private static void SimulateGasPayment(TestEngine engine, TokenFactoryContract factory, Signer signer, BigInteger amountDatoshi, object[] tokenData)
