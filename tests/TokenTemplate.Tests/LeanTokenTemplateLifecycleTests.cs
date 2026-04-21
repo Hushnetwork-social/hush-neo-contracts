@@ -120,6 +120,36 @@ public class LeanTokenTemplateLifecycleTests
     }
 
     [Test]
+    public void PlatformOwner_CanUpdatePlatformFeeAfterTokenOwnerLock()
+    {
+        var engine = new TestEngine(true);
+        var owner = TestEngine.GetNewSigner();
+        var factory = TestEngine.GetNewSigner();
+        engine.SetTransactionSigners(owner);
+
+        using var token = LeanTokenTemplateTestSupport.Deploy(engine, new LeanDeployParams
+        {
+            Name = "Lean Platform After Lock",
+            Symbol = "LPL",
+            Owner = owner.Account,
+            LaunchFactory = factory.Account,
+            InitialSupply = 1_000,
+            PlatformFeeRate = 250_000,
+            ManifestName = "LeanPlatformAfterLock"
+        });
+
+        token.Lock();
+        engine.SetTransactionSigners(new Signer { Account = factory.Account, Scopes = WitnessScope.Global });
+        token.SetPlatformFeeRate(700_000);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(token.isLocked(), Is.True);
+            Assert.That(token.getPlatformFeeRate(), Is.EqualTo((BigInteger)700_000));
+        });
+    }
+
+    [Test]
     public void Transfer_WithBurnRate_ReducesRecipientAmountAndTotalSupply()
     {
         var engine = new TestEngine(true);

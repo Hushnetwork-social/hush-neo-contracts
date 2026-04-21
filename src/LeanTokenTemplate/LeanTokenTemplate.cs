@@ -111,16 +111,14 @@ namespace HushNetwork.Contracts
             return raw is null ? UInt160.Zero : (UInt160)raw;
         }
 
-        private static void CollectTransferGasFees(UInt160 from)
+        private static void CollectTransferGasFees(UInt160 from, BigInteger platformFee, BigInteger creatorFee)
         {
-            BigInteger platformFee = getPlatformFeeRate();
             if (platformFee > 0)
             {
                 bool platformTransferred = GAS.Transfer(from, getAuthorizedFactory(), platformFee, null);
                 ExecutionEngine.Assert(platformTransferred, "Platform fee transfer failed");
             }
 
-            BigInteger creatorFee = getCreatorFeeRate();
             if (creatorFee > 0)
             {
                 UInt160 creatorClaimant = getCreatorClaimant();
@@ -289,13 +287,17 @@ namespace HushNetwork.Contracts
 
             bool sourceBalanceControlledByCallingContract = IsSourceBalanceControlledByCallingContract(from);
             bool launchFactoryControlledTransfer = IsLaunchFactoryControlledTransfer();
+            BigInteger platformFeeCollected = BigInteger.Zero;
+            BigInteger creatorFeeCollected = BigInteger.Zero;
 
             if (from != UInt160.Zero &&
                 !sourceBalanceControlledByCallingContract &&
                 !launchFactoryControlledTransfer &&
                 Runtime.CheckWitness(from))
             {
-                CollectTransferGasFees(from);
+                platformFeeCollected = getPlatformFeeRate();
+                creatorFeeCollected = getCreatorClaimant() == UInt160.Zero ? BigInteger.Zero : getCreatorFeeRate();
+                CollectTransferGasFees(from, platformFeeCollected, creatorFeeCollected);
             }
 
             object[] result = (object[])EngineCall("transfer", new object[] { TokenId(), from, to, amount });
@@ -314,6 +316,23 @@ namespace HushNetwork.Contracts
 
             if (burnAmount > 0)
                 OnTransfer(from, UInt160.Zero, burnAmount);
+
+            if (amount > 0)
+            {
+                EngineCall(
+                    "recordTransferEconomics",
+                    new object[]
+                    {
+                        TokenId(),
+                        from,
+                        to,
+                        amount,
+                        recipientAmount,
+                        burnAmount,
+                        platformFeeCollected,
+                        creatorFeeCollected
+                    });
+            }
 
             if (amount == 0)
                 OnTransfer(from, to, amount);

@@ -52,6 +52,11 @@ namespace HushNetwork.Contracts
         [DisplayName("TokenTransfer")]
         public static event OnTokenTransferDelegate OnTokenTransfer;
 
+        public delegate void OnTokenEconomicsAppliedDelegate(UInt160 tokenId, UInt160 from, UInt160 to, BigInteger grossAmount, BigInteger recipientAmount, BigInteger burnAmount, BigInteger platformFee, BigInteger creatorFee);
+
+        [DisplayName("TokenEconomicsApplied")]
+        public static event OnTokenEconomicsAppliedDelegate OnTokenEconomicsApplied;
+
         public delegate void OnTokenOwnerChangedDelegate(UInt160 tokenId, UInt160 previousOwner, UInt160 newOwner);
 
         [DisplayName("TokenOwnerChanged")]
@@ -614,6 +619,21 @@ namespace HushNetwork.Contracts
             ExecutionEngine.Assert(amount > 0, "Amount must be positive");
             info[Info_CreatorClaimable] = InfoInteger(info, Info_CreatorClaimable) + amount;
             StorageSetTokenInfo(tokenId, info);
+        }
+
+        public static void recordTransferEconomics(
+            UInt160 tokenId,
+            UInt160 from,
+            UInt160 to,
+            BigInteger grossAmount,
+            BigInteger recipientAmount,
+            BigInteger burnAmount,
+            BigInteger platformFee,
+            BigInteger creatorFee)
+        {
+            object[] info = RequireToken(tokenId);
+            AssertCallingFacade(info);
+            OnTokenEconomicsApplied(tokenId, from, to, grossAmount, recipientAmount, burnAmount, platformFee, creatorFee);
         }
 
         public static void claimCreatorFee(UInt160 tokenId, BigInteger amount)
