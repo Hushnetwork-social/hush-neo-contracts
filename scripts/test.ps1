@@ -12,6 +12,7 @@ if ($supportedTests -notcontains $Test) {
 
 $tokenRef = "#TT0"
 $tempFiles = @()
+$LastNeoExitCode = 0
 
 function Invoke-Neo {
     param(
@@ -20,7 +21,17 @@ function Invoke-Neo {
         [switch]$AllowFailure
     )
 
-    $output = & neoxp @Arguments 2>&1
+    $previousErrorActionPreference = $ErrorActionPreference
+    if ($AllowFailure) {
+        $ErrorActionPreference = "Continue"
+    }
+
+    try {
+        $output = & neoxp @Arguments 2>&1
+        $script:LastNeoExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
     $raw = ($output | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine
 
     if ($LASTEXITCODE -ne 0 -and -not $AllowFailure) {
@@ -268,13 +279,64 @@ try {
         Assert-Condition ($ownerBalanceAfter -eq 987655) "Expected deployer lean balance to decrease by 12345."
         Assert-Condition ($nodeBalanceAfter -eq 12345) "Expected node1 lean balance to be 12345."
 
+        Step "Quoting lean token transfer..."
+        $quote = Get-ArrayResult (Invoke-NeoJson -Arguments @("contract", "run", "-r", "-i", $chain, "LTT0", "quoteTransfer", "@deployer", "@node1", 12345))
+        Assert-Condition ($quote.Count -ge 8) "Expected LTT0 quoteTransfer to return the economics array."
+
+        Step "Updating lean token metadata as owner..."
+        $metadataFile = New-InvokeFile -Prefix "feat111-lean-metadata" -Steps @(
+            @{
+                contract = "LTT0"
+                operation = "setMetadataUri"
+                args = @("ipfs://lean-smoke")
+            }
+        )
+        Invoke-Neo -Arguments @("contract", "invoke", $metadataFile, "deployer", "-w", "Global", "-i", $chain) | Out-Null
+        $metadataResult = Invoke-NeoJson -Arguments @("contract", "run", "-r", "-i", $chain, "LTT0", "getMetadataUri")
+        $metadataUri = Get-TextResult $metadataResult.stack[0]
+        Assert-Condition ($metadataUri -eq "ipfs://lean-smoke") "Expected owner metadata update to be visible."
+
+        Step "Creating a second lean token and proving owner isolation..."
+        $leanCreateFile2 = New-InvokeFile -Prefix "feat111-lean-create-2" -Steps @(
+            @{
+                contract = "GasToken"
+                operation = "transfer"
+                args = @(
+                    "@node1",
+                    "#TokenFactory",
+                    1500000000,
+                    @("LeanOther", "LSM2", 500000, 8, "community", "", 0, "lean-nep17")
+                )
+            }
+        )
+        Invoke-Neo -Arguments @("contract", "invoke", $leanCreateFile2, "node1", "-w", "Global", "-i", $chain) | Out-Null
+
+        $tokenCountAfterSecondLean = Get-IntegerResult (Invoke-NeoJson -Arguments @("contract", "run", "-r", "-i", $chain, "TokenFactory", "getTokenCount"))
+        Assert-Condition ($tokenCountAfterSecondLean -eq 2) "Expected two created tokens after second lean launch smoke."
+        $contractsAfterSecondLean = Invoke-NeoJson -Arguments @("contract", "list", "-i", $chain)
+        $ltt1 = $contractsAfterSecondLean | Where-Object { $_.name -eq "LTT1" }
+        Assert-Condition ($null -ne $ltt1) "Expected LTT1 contract after second lean launch smoke."
+
+        $blockedMetadataFile = New-InvokeFile -Prefix "feat111-lean-blocked-metadata" -Steps @(
+            @{
+                contract = "LTT1"
+                operation = "setMetadataUri"
+                args = @("ipfs://blocked")
+            }
+        )
+        Invoke-Neo -Arguments @("contract", "invoke", $blockedMetadataFile, "deployer", "-w", "Global", "-i", $chain) -AllowFailure | Out-Null
+        Assert-Condition ($script:LastNeoExitCode -ne 0) "Expected LTT0 owner to be blocked from mutating LTT1."
+
         Step "Lean devnet smoke passed."
         Write-Host "  Created token: LTT0" -ForegroundColor Green
+        Write-Host "  Created isolation token: LTT1" -ForegroundColor Green
         Write-Host "  Profile: $profile" -ForegroundColor Green
         Write-Host "  Symbol: $symbol" -ForegroundColor Green
         Write-Host "  Deployer balance before transfer: $ownerBalanceBefore" -ForegroundColor Green
         Write-Host "  Deployer balance after transfer: $ownerBalanceAfter" -ForegroundColor Green
         Write-Host "  node1 balance after transfer: $nodeBalanceAfter" -ForegroundColor Green
+        Write-Host "  quoteTransfer array length: $($quote.Count)" -ForegroundColor Green
+        Write-Host "  Metadata URI after owner update: $metadataUri" -ForegroundColor Green
         exit 0
     }
 
