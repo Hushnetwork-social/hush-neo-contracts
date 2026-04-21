@@ -123,15 +123,18 @@ try {
     Invoke-Neo -Arguments @("transfer", "1000", "GAS", "genesis", "deployer", "-i", $chain) | Out-Null
     Invoke-Neo -Arguments @("transfer", "100", "GAS", "genesis", "node1", "-i", $chain) | Out-Null
 
-    Step "Deploying TokenFactory and BondingCurveRouter..."
+    Step "Deploying TokenFactory, LeanTokenEngine, and BondingCurveRouter..."
     Invoke-Neo -Arguments @("contract", "deploy", "src/TokenFactory/bin/sc/TokenFactory.nef", "deployer", "-i", $chain) | Out-Null
+    Invoke-Neo -Arguments @("contract", "deploy", "src/LeanTokenEngine/bin/sc/LeanTokenEngine.nef", "deployer", "-i", $chain) | Out-Null
     Invoke-Neo -Arguments @("contract", "deploy", "src/BondingCurveRouter/bin/sc/BondingCurveRouter.nef", "deployer", "-i", $chain) | Out-Null
 
     $contracts = Invoke-NeoJson -Arguments @("contract", "list", "-i", $chain)
     $factory = $contracts | Where-Object { $_.name -eq "TokenFactory" }
+    $leanEngine = $contracts | Where-Object { $_.name -eq "LeanTokenEngine" }
     $router = $contracts | Where-Object { $_.name -eq "BondingCurveRouter" }
 
     Assert-Condition ($null -ne $factory) "TokenFactory deployment was not found on devnet."
+    Assert-Condition ($null -ne $leanEngine) "LeanTokenEngine deployment was not found on devnet."
     Assert-Condition ($null -ne $router) "BondingCurveRouter deployment was not found on devnet."
 
     Step "Initializing factory artifacts and router linkage..."
@@ -171,6 +174,16 @@ try {
                 @{
                     type = "String"
                     value = $manifest
+                }
+            )
+        },
+        @{
+            contract = "TokenFactory"
+            operation = "setLeanEngine"
+            args = @(
+                @{
+                    type = "Hash160"
+                    value = [string]$leanEngine.hash
                 }
             )
         },

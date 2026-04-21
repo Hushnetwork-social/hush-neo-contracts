@@ -112,6 +112,99 @@ public class TokenFactoryLeanProfileTests
     }
 
     [Test]
+    public void FactoryCreationGas_IsMeasuredForFullAndLeanProfiles()
+    {
+        var engine = new TestEngine(true);
+        var owner = TestEngine.GetNewSigner();
+        var fullCreator = TestEngine.GetNewSigner();
+        var leanCreator = TestEngine.GetNewSigner();
+        engine.SetTransactionSigners(owner);
+        using var factory = DeployFactory(engine, owner.Account);
+
+        var fullNef = File.ReadAllBytes(Path.Combine(ArtifactsPath, "TokenTemplate.nef"));
+        var fullManifest = File.ReadAllText(Path.Combine(ArtifactsPath, "TokenTemplate.manifest.json"));
+        var leanNef = File.ReadAllBytes(Path.Combine(ArtifactsPath, "LeanTokenTemplate.nef"));
+        var leanManifest = File.ReadAllText(Path.Combine(ArtifactsPath, "LeanTokenTemplate.manifest.json"));
+        factory.SetNefAndManifest(fullNef, fullManifest);
+        factory.SetLeanNefAndManifest(leanNef, leanManifest);
+
+        LeanTokenEngineContract leanEngine;
+        long leanEngineDeployGas;
+        using (var watcher = engine.CreateGasWatcher())
+        {
+            leanEngine = LeanTokenTemplateTestSupport.DeployEngine(engine, factory.Hash, "LeanFactoryGasEngine");
+            leanEngineDeployGas = watcher.Value;
+        }
+
+        using (leanEngine)
+        {
+            long leanEngineFactoryConfigGas;
+            using (var watcher = engine.CreateGasWatcher())
+            {
+                factory.SetLeanEngine(leanEngine.Hash);
+                leanEngineFactoryConfigGas = watcher.Value;
+            }
+
+            long fullCreationGas;
+            using (var watcher = engine.CreateGasWatcher())
+            {
+                SimulateGasPayment(engine, factory, fullCreator, 1_500_000_000, new object[]
+                {
+                    "Full Factory Gas Token",
+                    "FFG",
+                    (BigInteger)1_000,
+                    (BigInteger)8,
+                    "community",
+                    "",
+                    (BigInteger)0
+                });
+                fullCreationGas = watcher.Value;
+            }
+
+            long leanCreationGas;
+            using (var watcher = engine.CreateGasWatcher())
+            {
+                SimulateGasPayment(engine, factory, leanCreator, 1_500_000_000, new object[]
+                {
+                    "Lean Factory Gas Token",
+                    "LFG",
+                    (BigInteger)1_000,
+                    (BigInteger)8,
+                    "community",
+                    "",
+                    (BigInteger)0,
+                    "lean-nep17"
+                });
+                leanCreationGas = watcher.Value;
+            }
+
+            UInt160 fullHash = GetLatestCreatedToken(factory, fullCreator.Account);
+            UInt160 leanHash = GetLatestCreatedToken(factory, leanCreator.Account);
+            BigInteger savings = (BigInteger)fullCreationGas - leanCreationGas;
+            decimal savingsPercent = Math.Round((decimal)savings / fullCreationGas * 100, 2);
+
+            NUnit.Framework.TestContext.Out.WriteLine($"FullFactoryCreationGasDatoshi={fullCreationGas}");
+            NUnit.Framework.TestContext.Out.WriteLine($"LeanFactoryCreationGasDatoshi={leanCreationGas}");
+            NUnit.Framework.TestContext.Out.WriteLine($"LeanPerTokenFactorySavingsDatoshi={savings}");
+            NUnit.Framework.TestContext.Out.WriteLine($"LeanPerTokenFactorySavingsPercent={savingsPercent}");
+            NUnit.Framework.TestContext.Out.WriteLine($"LeanSharedEngineDeployGasDatoshi={leanEngineDeployGas}");
+            NUnit.Framework.TestContext.Out.WriteLine($"LeanEngineFactoryConfigGasDatoshi={leanEngineFactoryConfigGas}");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(factory.GetTokenProfile(fullHash), Is.EqualTo("full-nep17"));
+                Assert.That(factory.GetTokenProfile(leanHash), Is.EqualTo("lean-nep17"));
+                Assert.That(fullCreationGas, Is.GreaterThan(0));
+                Assert.That(leanCreationGas, Is.GreaterThan(0));
+                Assert.That(leanEngineDeployGas, Is.GreaterThan(0));
+                Assert.That(leanEngineFactoryConfigGas, Is.GreaterThan(0));
+                Assert.That(leanCreationGas, Is.LessThan(fullCreationGas),
+                    $"Expected lean factory creation gas ({leanCreationGas}) to stay below full factory creation gas ({fullCreationGas}).");
+            });
+        }
+    }
+
+    [Test]
     public void FactoryLifecycleMethods_RejectLeanProfileButFullProfileStillWorks()
     {
         var engine = new TestEngine(true);
