@@ -90,4 +90,21 @@ public abstract class LeanTokenEngineContract : SmartContract
 
     [DisplayName("quoteTransfer")]
     public abstract object[]? QuoteTransfer(UInt160? tokenId, UInt160? from, UInt160? to, BigInteger? amount);
+
+    [DisplayName("registerToken")]
+    public abstract bool? RegisterToken(
+        UInt160? tokenId,
+        string? name,
+        string? symbol,
+        BigInteger? initialSupply,
+        BigInteger? decimals,
+        UInt160? owner,
+        BigInteger? mintable,
+        BigInteger? maxSupply,
+        BigInteger? upgradeable,
+        string? metadataUri,
+        BigInteger? pausable,
+        UInt160? launchFactory,
+        BigInteger? platformFeeRate,
+        BigInteger? creatorFeeRate);
 }

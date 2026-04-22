@@ -205,6 +205,59 @@ public class TokenFactoryLeanProfileTests
     }
 
     [Test]
+    public void SharedEngineRegistrationGas_IsMeasuredForMasterContractReference()
+    {
+        var engine = new TestEngine(true);
+        var owner = TestEngine.GetNewSigner();
+        var creator = TestEngine.GetNewSigner();
+        var facadeReference = TestEngine.GetNewSigner();
+        engine.SetTransactionSigners(owner);
+
+        using var leanEngine = LeanTokenTemplateTestSupport.DeployEngine(
+            engine,
+            owner.Account,
+            "LeanMasterRegistrationGasEngine");
+
+        long registrationGas;
+        engine.OnGetCallingScriptHash = (_, _) => facadeReference.Account;
+        try
+        {
+            using var watcher = engine.CreateGasWatcher();
+            Assert.That(leanEngine.RegisterToken(
+                facadeReference.Account,
+                "Master Registration Gas Token",
+                "MRG",
+                1_000,
+                8,
+                creator.Account,
+                BigInteger.One,
+                BigInteger.Zero,
+                BigInteger.Zero,
+                "",
+                BigInteger.Zero,
+                owner.Account,
+                BigInteger.Zero,
+                BigInteger.Zero), Is.True);
+            registrationGas = watcher.Value;
+        }
+        finally
+        {
+            engine.OnGetCallingScriptHash = null;
+        }
+
+        NUnit.Framework.TestContext.Out.WriteLine($"SharedEngineRegistrationOnlyGasDatoshi={registrationGas}");
+        NUnit.Framework.TestContext.Out.WriteLine($"SharedEngineRegistrationOnlyGas={registrationGas / 100_000_000m}");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(registrationGas, Is.GreaterThan(0));
+            Assert.That(leanEngine.isTokenRegistered(facadeReference.Account), Is.True);
+            Assert.That(leanEngine.TotalSupply(facadeReference.Account), Is.EqualTo((BigInteger)1_000));
+            Assert.That(leanEngine.BalanceOf(facadeReference.Account, creator.Account), Is.EqualTo((BigInteger)1_000));
+        });
+    }
+
+    [Test]
     public void FactoryLifecycleMethods_RejectLeanProfileButFullProfileStillWorks()
     {
         var engine = new TestEngine(true);
